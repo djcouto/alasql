@@ -137,6 +137,7 @@ gulp.task('js-merge', function () {
     './src/92localstorage.js',
     './src/93sqljs.js',
     './src/94filestorage.js',
+    './src/95safestorage.js',
     './src/97saveas.js',
     './src/99worker.js',
     './src/FileSaver.js',
