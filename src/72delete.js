@@ -49,10 +49,13 @@ yy.Delete.prototype.compile = function (databaseid) {
 //		var query = {};
 //console.log(this.where.toJS('r',''));
 		var wherefn = new Function('r,params,alasql','var y;return ('+this.where.toJS('r','')+')').bind(this);
+		if(this.where) {
+			var whereStatement = this.where;
+		}
 //		console.log(wherefn);
 		statement = (function (params, cb) {
 			if(db.engineid && alasql.engines[db.engineid].deleteFromTable) {
-				return alasql.engines[db.engineid].deleteFromTable(databaseid, tableid, wherefn, params, cb);
+				return alasql.engines[db.engineid].deleteFromTable(databaseid, tableid, wherefn, params, cb, whereStatement);
 			}
 
 			if(alasql.options.autocommit && db.engineid && db.engineid == 'LOCALSTORAGE') {

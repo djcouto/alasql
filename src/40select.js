@@ -158,9 +158,23 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	
 	query.defcols = this.compileDefCols(query, databaseid);
 
+	// 5. Optimize WHERE and JOINS
+	if(this.where){
+		this.compileWhereJoins(query);
+	}
+
+	// 4. Compile WHERE clause
+	query.wherefn = this.compileWhere(query);
+
 	// 1. Compile FROM clause
-	query.fromfn = this.compileFrom(query);
-	
+	if(this.where && db.computeWhere) {
+		console.log('where will computed outside')
+		query.fromfn = this.compileFrom(query, this.where);
+		this.where = undefined
+	} else {
+		query.fromfn = this.compileFrom(query);		
+	}
+
 	// 2. Compile JOIN clauses
 	if(this.joins){
 		this.compileJoins(query);
@@ -181,16 +195,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 	// Remove columns clause
 	this.compileRemoveColumns(query);
-
-	// 5. Optimize WHERE and JOINS
-	if(this.where){
-		this.compileWhereJoins(query);
-	}
-
-	// 4. Compile WHERE clause
-	query.wherefn = this.compileWhere(query);
-
-
+	
 	// 6. Compile GROUP BY
 	if(this.group || query.selectGroup.length>0){
 		query.groupfn = this.compileGroup(query);

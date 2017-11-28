@@ -45,22 +45,29 @@ yy.Update.prototype.compile = function (databaseid) {
 	};
 
 	// Construct update function
+	var assignStatment = []
 	var s = alasql.databases[databaseid].tables[tableid].onupdatefns || '';
 	s += ';';
 	this.columns.forEach(function(col){
 		s += 'r[\''+col.column.columnid+'\']='+col.expression.toJS('r','')+';'; 
+		var asgn = {}
+		asgn[col.column.columnid] = col.expression.value
+		assignStatment.push(asgn)
 	});
 	var assignfn = new Function('r,params,alasql','var y;'+s);
-
+	
+	if(this.where) {
+		var whereStatement = this.where;
+	}
 	var statement = function(params, cb) {
 		var db = alasql.databases[databaseid];
-
+	
 
 //		console.log(db.engineid);
 //		console.log(db.engineid && alasql.engines[db.engineid].updateTable);
 		if(db.engineid && alasql.engines[db.engineid].updateTable) {
 //			console.log('updateTable');
-			return alasql.engines[db.engineid].updateTable(databaseid, tableid, assignfn, wherefn, params, cb);
+			return alasql.engines[db.engineid].updateTable(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment);
 		}
 
 		if(alasql.options.autocommit && db.engineid) {

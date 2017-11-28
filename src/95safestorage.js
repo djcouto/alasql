@@ -49,16 +49,18 @@ SSDB.dropDatabase = function(ssdbid, ifexists, cb){
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   var db = new alasql.Database(dbid || ssdbid);
   db.engineid = "SAFESTORAGE";
+  // db.computeWhere = true
   db.ssdbid = ssdbid;
   db.tables = [];
   if(cb) cb(1)
 }
 
-SSDB.createTable = function(databaseid, tableid, ifnotexists, cb) {  
+SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {  
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
-    'if_exists' : ! ifnotexists
+    'if_exists' : ! ifnotexists,
+    'fields': columnsmap
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/create', data)
   .then(function(response) {
@@ -114,64 +116,58 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query){
   })
 }
 
-SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb){
+SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
   var deleted = []
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'where': whereStatement
   }
-  return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
   .then(function(response) {
-    response.data.content.data.forEach(function(value) {
-      if(!wherefn || wherefn(value,params)) {
-        deleted.push(value)
-      }
-    })
-    data.data = deleted
-    return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
-    .then(function(response) {
-      if(cb) cb(deleted.length)
-    })
-    .catch(function(error) {
-      if(cb) cb(0)
-    })
+    if(cb) cb(response.data.content.length)
   })
   .catch(function(error) {
     if(cb) cb(0)
   })
 }
 
-SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb){
+SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment){
   var updated = []
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'where': whereStatement,
+    'assign': assignStatment
   }
-  return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  console.log(assignStatment)
+  // return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  // .then(function(response) {
+  //   response.data.content.data.forEach(function(value) {
+  //     if(!wherefn || wherefn(value,params)) {
+  //       old = clone(value)
+  //       assignfn(value)
+  //       updated.push({
+  //         old: old,
+  //         new: value
+  //       })
+  //     }
+  //   })
+  //   data.data = updated
+  //   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
+  //   .then(function(response) {
+  //     if(cb) cb(updated.length)
+  //   })
+  //   .catch(function(error) {
+  //     if(cb) cb(0)
+  //   })
+  // })
+  // .catch(function(error) {
+  //   if(cb) cb(0)
+  // })
+  return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {
-    response.data.content.data.forEach(function(value) {
-      if(!wherefn || wherefn(value,params)) {
-        old = clone(value)
-        console.log('old:',old)            
-        console.log('new:',value)            
-        assignfn(value)
-        console.log('old:',old) 
-        console.log('new:',value)         
-        updated.push({
-          old: old,
-          new: value
-        })
-      }
-    })
-    console.log(updated)
-    data.data = updated
-    return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
-    .then(function(response) {
-      if(cb) cb(updated.length)
-    })
-    .catch(function(error) {
-      if(cb) cb(0)
-    })
+    if(cb) cb(response.data.content.length)
   })
   .catch(function(error) {
     if(cb) cb(0)

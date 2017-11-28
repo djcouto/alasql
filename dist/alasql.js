@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-develop-1560 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-develop-1562 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-develop-1560
+@version 0.4.3-develop-1562
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-develop-1560';
+alasql.version = '0.4.3-develop-1562';
 
 /**
 	Debug flag
@@ -7159,8 +7159,22 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 	query.defcols = this.compileDefCols(query, databaseid);
 
+	// 5. Optimize WHERE and JOINS
+	if(this.where){
+		this.compileWhereJoins(query);
+	}
+
+	// 4. Compile WHERE clause
+	query.wherefn = this.compileWhere(query);
+
 	// 1. Compile FROM clause
-	query.fromfn = this.compileFrom(query);
+	if(this.where && db.computeWhere) {
+		console.log('where will computed outside')
+		query.fromfn = this.compileFrom(query, this.where);
+		this.where = undefined
+	} else {
+		query.fromfn = this.compileFrom(query);		
+	}
 
 	// 2. Compile JOIN clauses
 	if(this.joins){
@@ -7182,14 +7196,6 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 	// Remove columns clause
 	this.compileRemoveColumns(query);
-
-	// 5. Optimize WHERE and JOINS
-	if(this.where){
-		this.compileWhereJoins(query);
-	}
-
-	// 4. Compile WHERE clause
-	query.wherefn = this.compileWhere(query);
 
 	// 6. Compile GROUP BY
 	if(this.group || query.selectGroup.length>0){
@@ -7565,7 +7571,7 @@ alasql.precompile = function(statement,databaseid,params){
 //
 */
 
-yy.Select.prototype.compileFrom = function(query) {
+yy.Select.prototype.compileFrom = function(query, whereStatement) {
 
 	var self = this;
 	query.sources = [];
@@ -7625,7 +7631,7 @@ yy.Select.prototype.compileFrom = function(query) {
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx,query);
+						source.databaseid, source.tableid,cb,idx,query, whereStatement);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {
@@ -7668,7 +7674,6 @@ yy.Select.prototype.compileFrom = function(query) {
 				return res;
 			}						
 		} else if(tq instanceof yy.Search) {
-
 			 source.subsearch = tq;
 			 source.columns = [];
 
@@ -11275,9 +11280,15 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 
 	var ss = [];  // DEFAULT function components
 	var uss = []; // ON UPDATE function components
+	var columnsmap = {}
 	if(columns) {
 		columns.forEach(function(col) {
+			var columnid = col.columnid;
 			var dbtypeid = col.dbtypeid;
+			var notnull = col.notnull || false;
+			columnsmap[columnid] = {}
+			columnsmap[columnid].type = dbtypeid
+			columnsmap[columnid].notnull = notnull
 			if(!alasql.fn[dbtypeid]){
 				dbtypeid = dbtypeid.toUpperCase();
 			}
@@ -11448,7 +11459,7 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 
 	if(db.engineid) {
 
-		return alasql.engines[db.engineid].createTable(this.table.databaseid || databaseid, tableid, this.ifnotexists, cb);
+		return alasql.engines[db.engineid].createTable(this.table.databaseid || databaseid, tableid, this.ifnotexists, cb, columnsmap);
 
 	}
 
@@ -13257,10 +13268,13 @@ yy.Delete.prototype.compile = function (databaseid) {
 		}
 
 		var wherefn = new Function('r,params,alasql','var y;return ('+this.where.toJS('r','')+')').bind(this);
+		if(this.where) {
+			var whereStatement = this.where;
+		}
 
 		statement = (function (params, cb) {
 			if(db.engineid && alasql.engines[db.engineid].deleteFromTable) {
-				return alasql.engines[db.engineid].deleteFromTable(databaseid, tableid, wherefn, params, cb);
+				return alasql.engines[db.engineid].deleteFromTable(databaseid, tableid, wherefn, params, cb, whereStatement);
 			}
 
 			if(alasql.options.autocommit && db.engineid && db.engineid == 'LOCALSTORAGE') {
@@ -13391,19 +13405,26 @@ yy.Update.prototype.compile = function (databaseid) {
 	};
 
 	// Construct update function
+	var assignStatment = []
 	var s = alasql.databases[databaseid].tables[tableid].onupdatefns || '';
 	s += ';';
 	this.columns.forEach(function(col){
 		s += 'r[\''+col.column.columnid+'\']='+col.expression.toJS('r','')+';'; 
+		var asgn = {}
+		asgn[col.column.columnid] = col.expression.value
+		assignStatment.push(asgn)
 	});
 	var assignfn = new Function('r,params,alasql','var y;'+s);
 
+	if(this.where) {
+		var whereStatement = this.where;
+	}
 	var statement = function(params, cb) {
 		var db = alasql.databases[databaseid];
 
 		if(db.engineid && alasql.engines[db.engineid].updateTable) {
 
-			return alasql.engines[db.engineid].updateTable(databaseid, tableid, assignfn, wherefn, params, cb);
+			return alasql.engines[db.engineid].updateTable(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment);
 		}
 
 		if(alasql.options.autocommit && db.engineid) {
@@ -16291,7 +16312,7 @@ if(utils.hasIndexedDB) {
 // work only in chrome
 //
 IDB.showDatabases = function(like,cb) {
-
+	console.log('showDatabases', arguments)
 	var request = IDB.getDatabaseNames();
 	request.onsuccess = function(event) {
 		var dblist = event.target.result;
@@ -16312,33 +16333,7 @@ IDB.showDatabases = function(like,cb) {
 };
 
 IDB.createDatabase = function(ixdbid, args, ifnotexists, dbid, cb){
-console.log(arguments);
-  var indexedDB = utils.global.indexedDB;
-	if(ifnotexists) {
-		var request2 = indexedDB.open(ixdbid,1);
-		request2.onsuccess = function(event) {
-			event.target.result.close();
-			if(cb) cb(1);
-		};
-	} else {
-		var request1 = indexedDB.open(ixdbid,1);
-		request1.onupgradeneeded = function (e){
-			console.log('abort');
-		    e.target.transaction.abort();
-		};
-		request1.onsuccess = function(e) {
-			console.log('success');
-			if(ifnotexists) {
-				if(cb) cb(0);
-			} else {
-				throw new Error('IndexedDB: Cannot create new database "'+ixdbid+'" because it already exists');
-			}
-		}
-	}
-
-};
-
-IDB.createDatabase = function(ixdbid, args, ifnotexists, dbid, cb){
+	console.log('createDatabase', arguments)
   var indexedDB = utils.global.indexedDB;
 	if(IDB.getDatabaseNamesNotSupported) {
 		// Hack for Firefox
@@ -16402,6 +16397,7 @@ IDB.createDatabase = function(ixdbid, args, ifnotexists, dbid, cb){
 };
 
 IDB.dropDatabase = function(ixdbid, ifexists, cb){
+	console.log('dropDatabase', arguments)
   var indexedDB = utils.global.indexedDB;
 	var request1 = IDB.getDatabaseNames();
 	request1.onsuccess = function(event) {
@@ -16423,6 +16419,7 @@ IDB.dropDatabase = function(ixdbid, ifexists, cb){
 };
 
 IDB.attachDatabase = function(ixdbid, dbid, args, params, cb) {
+	console.log('attachDatabase', arguments)
 
 	if(!utils.hasIndexedDB){
 		throw new Error('The current browser does not support IndexedDB');
@@ -16453,6 +16450,7 @@ IDB.attachDatabase = function(ixdbid, dbid, args, params, cb) {
 };
 
 IDB.createTable = function(databaseid, tableid, ifnotexists, cb) {
+	console.log('createTable', arguments)
   var indexedDB = utils.global.indexedDB;
 
 	var ixdbid = alasql.databases[databaseid].ixdbid;
@@ -16497,6 +16495,7 @@ IDB.createTable = function(databaseid, tableid, ifnotexists, cb) {
 };
 
 IDB.dropTable = function (databaseid, tableid, ifexists, cb) {
+	console.log('dropTable', arguments)
   var indexedDB = utils.global.indexedDB;
 	var ixdbid = alasql.databases[databaseid].ixdbid;
 
@@ -16548,6 +16547,7 @@ IDB.dropTable = function (databaseid, tableid, ifexists, cb) {
 }
 
 IDB.intoTable = function(databaseid, tableid, value, columns, cb) {
+	console.log('intoTable', arguments)
 
 	// console.trace();
 
@@ -16571,7 +16571,8 @@ IDB.intoTable = function(databaseid, tableid, value, columns, cb) {
 
 };
 
-IDB.fromTable = function(databaseid, tableid, cb, idx, query){
+IDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
+	console.log('fromTable', arguments)
 
 	// console.trace();
 	var indexedDB = utils.global.indexedDB;
@@ -16608,6 +16609,7 @@ IDB.fromTable = function(databaseid, tableid, cb, idx, query){
 }
 
 IDB.deleteFromTable = function(databaseid, tableid, wherefn,params, cb){
+	console.log('deleteFromTable', arguments)
 
 	// console.trace();
   var indexedDB = utils.global.indexedDB;
@@ -16649,6 +16651,7 @@ IDB.deleteFromTable = function(databaseid, tableid, wherefn,params, cb){
 }
 
 IDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb){
+	console.log('updateTable', arguments)
 
 	// console.trace();
   var indexedDB = utils.global.indexedDB;
@@ -17501,16 +17504,18 @@ SSDB.dropDatabase = function(ssdbid, ifexists, cb){
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   var db = new alasql.Database(dbid || ssdbid);
   db.engineid = "SAFESTORAGE";
+  // db.computeWhere = true
   db.ssdbid = ssdbid;
   db.tables = [];
   if(cb) cb(1)
 }
 
-SSDB.createTable = function(databaseid, tableid, ifnotexists, cb) {  
+SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {  
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
-    'if_exists' : ! ifnotexists
+    'if_exists' : ! ifnotexists,
+    'fields': columnsmap
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/create', data)
   .then(function(response) {
@@ -17561,61 +17566,57 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query){
   })
 }
 
-SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb){
+SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
   var deleted = []
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'where': whereStatement
   }
-  return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
   .then(function(response) {
-    response.data.content.data.forEach(function(value) {
-      if(!wherefn || wherefn(value,params)) {
-        deleted.push(value)
-      }
-    })
-    data.data = deleted
-    return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
-    .then(function(response) {
-      if(cb) cb(deleted.length)
-    })["catch"](function(error) {
-      if(cb) cb(0)
-    })
+    if(cb) cb(response.data.content.length)
   })["catch"](function(error) {
     if(cb) cb(0)
   })
 }
 
-SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb){
+SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment){
   var updated = []
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'where': whereStatement,
+    'assign': assignStatment
   }
-  return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  console.log(assignStatment)
+  // return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+  // .then(function(response) {
+  //   response.data.content.data.forEach(function(value) {
+  //     if(!wherefn || wherefn(value,params)) {
+  //       old = clone(value)
+  //       assignfn(value)
+  //       updated.push({
+  //         old: old,
+  //         new: value
+  //       })
+  //     }
+  //   })
+  //   data.data = updated
+  //   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
+  //   .then(function(response) {
+  //     if(cb) cb(updated.length)
+  //   })
+  //   .catch(function(error) {
+  //     if(cb) cb(0)
+  //   })
+  // })
+  // .catch(function(error) {
+  //   if(cb) cb(0)
+  // })
+  return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {
-    response.data.content.data.forEach(function(value) {
-      if(!wherefn || wherefn(value,params)) {
-        old = clone(value)
-        console.log('old:',old)            
-        console.log('new:',value)            
-        assignfn(value)
-        console.log('old:',old) 
-        console.log('new:',value)         
-        updated.push({
-          old: old,
-          "new": value
-        })
-      }
-    })
-    console.log(updated)
-    data.data = updated
-    return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
-    .then(function(response) {
-      if(cb) cb(updated.length)
-    })["catch"](function(error) {
-      if(cb) cb(0)
-    })
+    if(cb) cb(response.data.content.length)
   })["catch"](function(error) {
     if(cb) cb(0)
   })

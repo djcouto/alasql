@@ -6,7 +6,7 @@
 //
 */
 
-yy.Select.prototype.compileFrom = function(query) {
+yy.Select.prototype.compileFrom = function(query, whereStatement) {
     //	console.log(1);
 	var self = this;
 	query.sources = [];
@@ -74,7 +74,7 @@ yy.Select.prototype.compileFrom = function(query) {
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx,query);
+						source.databaseid, source.tableid,cb,idx,query, whereStatement);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {
@@ -125,7 +125,6 @@ yy.Select.prototype.compileFrom = function(query) {
 				return res;
 			}						
 		} else if(tq instanceof yy.Search) {
-
 			 source.subsearch = tq;
 			 source.columns = [];
 /*/*

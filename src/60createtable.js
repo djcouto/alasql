@@ -108,9 +108,15 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 
 	var ss = [];  // DEFAULT function components
 	var uss = []; // ON UPDATE function components
+	var columnsmap = {}
 	if(columns) {
 		columns.forEach(function(col) {
+			var columnid = col.columnid;
 			var dbtypeid = col.dbtypeid;
+			var notnull = col.notnull || false;
+			columnsmap[columnid] = {}
+			columnsmap[columnid].type = dbtypeid
+			columnsmap[columnid].notnull = notnull
 			if(!alasql.fn[dbtypeid]){
 				dbtypeid = dbtypeid.toUpperCase();
 			}
@@ -296,7 +302,7 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
     
 	if(db.engineid) {
 //		console.log(101,db.engineid);
-		return alasql.engines[db.engineid].createTable(this.table.databaseid || databaseid, tableid, this.ifnotexists, cb);
+		return alasql.engines[db.engineid].createTable(this.table.databaseid || databaseid, tableid, this.ifnotexists, cb, columnsmap);
 //		console.log('createtable',res1);
 //		return res1; 
 	}
