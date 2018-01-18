@@ -74,7 +74,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement) {
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx,query, whereStatement);
+						source.databaseid, source.tableid,cb,idx, query, whereStatement);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {

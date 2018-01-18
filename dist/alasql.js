@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-develop-1562 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-dc-safe.storage-1562 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-develop-1562
+@version 0.4.3-dc-safe.storage-1562
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-develop-1562';
+alasql.version = '0.4.3-dc-safe.storage-1562';
 
 /**
 	Debug flag
@@ -7631,7 +7631,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement) {
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx,query, whereStatement);
+						source.databaseid, source.tableid,cb,idx, query, whereStatement);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {
@@ -17466,6 +17466,15 @@ FS.rollback = function(databaseid, cb) {
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
 
+SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
+  var db = new alasql.Database(dbid || ssdbid);
+  db.engineid = "SAFESTORAGE";
+  db.computeWhere = false
+  db.ssdbid = ssdbid;
+  db.tables = [];
+  if(cb) cb(1)
+}
+
 SSDB.showDatabases = function(like,cb) {  
   axios.get('http://localhost:4567/databases')
   .then(function(response) {
@@ -17499,15 +17508,6 @@ SSDB.dropDatabase = function(ssdbid, ifexists, cb){
   })["catch"](function(error) {
     if(cb) cb(0)
   })
-}
-
-SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
-  var db = new alasql.Database(dbid || ssdbid);
-  db.engineid = "SAFESTORAGE";
-  // db.computeWhere = true
-  db.ssdbid = ssdbid;
-  db.tables = [];
-  if(cb) cb(1)
 }
 
 SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {  
@@ -17553,17 +17553,31 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
   })
 }
 
-SSDB.fromTable = function(databaseid, tableid, cb, idx, query){
+SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'fields': query.selectColumns,
   }
-  return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
-  .then(function(response) {
-    if(cb) cb(response.data.content.data, idx, query)
-  })["catch"](function(error) {
-    if(cb) cb(0, idx, query)
-  })
+  console.log(query);
+  console.log(whereStatement)
+  if(whereStatement === undefined) {
+    return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
+    .then(function(response) {
+      if(cb) cb(response.data.content.data, idx, query)
+    })["catch"](function(error) {
+      if(cb) cb(0, idx, query)
+    })
+  } else {
+    data['where'] = whereStatement.expression 
+    return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/where', data)
+    .then(function(response) {
+      if(cb) cb(response.data.content.data, idx, query)
+    })["catch"](function(error) {
+      if(cb) cb(0, idx, query)
+    })
+  }
+
 }
 
 SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
@@ -17573,6 +17587,7 @@ SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereS
     'table_id': tableid,
     'where': whereStatement
   }
+  console.log(whereStatement)
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
@@ -17589,31 +17604,8 @@ SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, 
     'where': whereStatement,
     'assign': assignStatment
   }
+  console.log(whereStatement)
   console.log(assignStatment)
-  // return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
-  // .then(function(response) {
-  //   response.data.content.data.forEach(function(value) {
-  //     if(!wherefn || wherefn(value,params)) {
-  //       old = clone(value)
-  //       assignfn(value)
-  //       updated.push({
-  //         old: old,
-  //         new: value
-  //       })
-  //     }
-  //   })
-  //   data.data = updated
-  //   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
-  //   .then(function(response) {
-  //     if(cb) cb(updated.length)
-  //   })
-  //   .catch(function(error) {
-  //     if(cb) cb(0)
-  //   })
-  // })
-  // .catch(function(error) {
-  //   if(cb) cb(0)
-  // })
   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
