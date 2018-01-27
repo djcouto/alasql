@@ -86,7 +86,6 @@ function queryfn2(data,idx,query) {
 //console.log(56,arguments);
 //		console.log(78,data, idx,query);
 //console.trace();
-
 	if(idx>=0) {
 		var source = query.sources[idx];
 		source.data = data;
@@ -116,7 +115,6 @@ function queryfn2(data,idx,query) {
 
 function queryfn3(query) {
 
-
 	var scope = query.scope,
         jlen;
 
@@ -136,7 +134,6 @@ function queryfn3(query) {
 
 	// Level of Joins
 	var h = 0;
-
 
 	// Start walking over data
 //console.log(142,'1111');
@@ -267,7 +264,6 @@ function queryfn3(query) {
 				ud.push(r);
 			}
 		}
-
 
 
 		query.data = arrayExceptDeep(query.data, ud);

@@ -140,8 +140,8 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	var query = new Query();
 
 	// Array with columns to be removed
-    query.removeKeys = [];
-    query.aggrKeys = [];
+	query.removeKeys = [];
+	query.aggrKeys = [];
 
 	query.explain = this.explain; // Explain
 	query.explaination = [];
@@ -167,8 +167,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.wherefn = this.compileWhere(query);
 
 	// 1. Compile FROM clause
-	if(this.where && db.computeWhere) {
-		console.log('where will computed outside')
+	if(this.where && db.computedOutside) {
 		query.fromfn = this.compileFrom(query, this.where);
 		this.where = undefined
 	} else {
@@ -186,7 +185,6 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.rownums = [];
 	
 	this.compileSelectGroup0(query);
-
 	if(this.group || query.selectGroup.length>0) {
 		query.selectgfns = this.compileSelectGroup1(query);
 	} else {
@@ -218,16 +216,14 @@ yy.Select.prototype.compile = function(databaseid, params) {
 		query.selectfn = this.compileSelect2(query);
 	}
 
-
 	// 7. Compile DISTINCT, LIMIT and OFFSET
-	query.distinct = this.distinct;
-
-
+	query.distinct = this.distinct ? true : false;
+	
 	// 9. Compile PIVOT clause
 	if(this.pivot) query.pivotfn = this.compilePivot(query);
 	if(this.unpivot) query.pivotfn = this.compileUnpivot(query);
 
-	// 10. Compile TOP/LIMIT/OFFSET/FETCH cleuse
+	// 10. Compile TOP/LIMIT/OFFSET/FETCH clause
 	if(this.top) {
 		query.limit = this.top.value;
 	} else if(this.limit) {

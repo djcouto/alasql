@@ -49,8 +49,10 @@ yy.Delete.prototype.compile = function (databaseid) {
 //		var query = {};
 //console.log(this.where.toJS('r',''));
 		var wherefn = new Function('r,params,alasql','var y;return ('+this.where.toJS('r','')+')').bind(this);
-		if(this.where) {
-			var whereStatement = this.where;
+		var whereStatement;
+		if(this.where && db.computedOutside) {
+			whereStatement = this.where;
+			this.where = undefined
 		}
 //		console.log(wherefn);
 		statement = (function (params, cb) {

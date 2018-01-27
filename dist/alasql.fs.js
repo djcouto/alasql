@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-dc-safe.storage-1562 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-dc-safe.storage-1563 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-dc-safe.storage-1562
+@version 0.4.3-dc-safe.storage-1563
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-dc-safe.storage-1562';
+alasql.version = '0.4.3-dc-safe.storage-1563';
 
 /**
 	Debug flag
@@ -6336,7 +6336,6 @@ function queryfn(query,oldscope,cb, A,B) {
 function queryfn2(data,idx,query) {
 
 //console.trace();
-
 	if(idx>=0) {
 		var source = query.sources[idx];
 		source.data = data;
@@ -7141,8 +7140,8 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	var query = new Query();
 
 	// Array with columns to be removed
-    query.removeKeys = [];
-    query.aggrKeys = [];
+	query.removeKeys = [];
+	query.aggrKeys = [];
 
 	query.explain = this.explain; // Explain
 	query.explaination = [];
@@ -7168,8 +7167,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.wherefn = this.compileWhere(query);
 
 	// 1. Compile FROM clause
-	if(this.where && db.computeWhere) {
-		console.log('where will computed outside')
+	if(this.where && db.computedOutside) {
 		query.fromfn = this.compileFrom(query, this.where);
 		this.where = undefined
 	} else {
@@ -7187,7 +7185,6 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.rownums = [];
 
 	this.compileSelectGroup0(query);
-
 	if(this.group || query.selectGroup.length>0) {
 		query.selectgfns = this.compileSelectGroup1(query);
 	} else {
@@ -7219,13 +7216,13 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	}
 
 	// 7. Compile DISTINCT, LIMIT and OFFSET
-	query.distinct = this.distinct;
+	query.distinct = this.distinct ? true : false;
 
 	// 9. Compile PIVOT clause
 	if(this.pivot) query.pivotfn = this.compilePivot(query);
 	if(this.unpivot) query.pivotfn = this.compileUnpivot(query);
 
-	// 10. Compile TOP/LIMIT/OFFSET/FETCH cleuse
+	// 10. Compile TOP/LIMIT/OFFSET/FETCH clause
 	if(this.top) {
 		query.limit = this.top.value;
 	} else if(this.limit) {
@@ -8522,10 +8519,14 @@ yy.Select.prototype.compileSelect1 = function(query, params) {
 	var sp = '';
 	var ss = [];
 
+	if(query.database.computedOutside) {
+
+	}
+
 	this.columns.forEach(function(col){
 
 		if(col instanceof yy.Column) {
-			if(col.columnid === '*') {
+			if(col.columnid === '*' /*|| query.database.computedOutside*/) {
 				if(col.func) {
 					sp += 'r=params[\''+col.param+'\'](p[\''+query.sources[0].alias+'\'],p,params,alasql);';
 				} else if(col.tableid) {
@@ -13268,8 +13269,10 @@ yy.Delete.prototype.compile = function (databaseid) {
 		}
 
 		var wherefn = new Function('r,params,alasql','var y;return ('+this.where.toJS('r','')+')').bind(this);
-		if(this.where) {
-			var whereStatement = this.where;
+		var whereStatement;
+		if(this.where && db.computedOutside) {
+			whereStatement = this.where;
+			this.where = undefined
 		}
 
 		statement = (function (params, cb) {
@@ -17465,13 +17468,15 @@ FS.rollback = function(databaseid, cb) {
 //
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
+var computedOutside;
 
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   var db = new alasql.Database(dbid || ssdbid);
   db.engineid = "SAFESTORAGE";
-  db.computeWhere = false
+  db.computedOutside = true
   db.ssdbid = ssdbid;
   db.tables = [];
+  computedOutside = db.computedOutside;
   if(cb) cb(1)
 }
 
@@ -17564,19 +17569,15 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
     'database_id': databaseid,
     'table_id': tableid,
     'fields': query.selectColumns,
+    'distinct': query.distinct,
+    'limit': query.top ? query.top : (query.limit ? query.limit : -1),
+    'percentage': query.percent ? query.percent : 100,
+    'offset': query.offset ? query.offset : 0,    
+    'where' : whereStatement ? whereStatement.expression : undefined
   }
-  console.log(query);
-  console.log(whereStatement)
-  if(whereStatement === undefined) {
-    return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
-    .then(function(response) {
-      if(cb) cb(response.data.content.data, idx, query)
-    })
-    .catch(function(error) {
-      if(cb) cb(0, idx, query)
-    })
-  } else {
-    data['where'] = whereStatement.expression 
+  if(computedOutside) {
+    query.distinct = false
+    query.selectColumns = {}
     return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/where', data)
     .then(function(response) {
       if(cb) cb(response.data.content.data, idx, query)
@@ -17584,8 +17585,15 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
     .catch(function(error) {
       if(cb) cb(0, idx, query)
     })
+  } else {
+    return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid)
+    .then(function(response) {
+      if(cb) cb(response.data.content.data, idx, query)
+    })
+    .catch(function(error) {
+      if(cb) cb(0, idx, query)
+    })
   }
-
 }
 
 SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
@@ -17593,9 +17601,12 @@ SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereS
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
-    'where': whereStatement
   }
-  console.log(whereStatement)
+  if(computedOutside) {
+    data['where'] = whereStatement
+  } else {
+    data['data'] = params
+  }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
@@ -17609,12 +17620,14 @@ SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, 
   var updated = []
   var data = {
     'database_id': databaseid,
-    'table_id': tableid,
-    'where': whereStatement,
-    'assign': assignStatment
+    'table_id': tableid
   }
-  console.log(whereStatement)
-  console.log(assignStatment)
+  if(computedOutside) {
+    data['where'] = whereStatement
+    data['assign'] = assignStatment
+  } else {
+    data['data'] = params
+  }
   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
