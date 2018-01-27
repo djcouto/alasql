@@ -137,7 +137,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
 }
 
 SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
-  var deleted = []
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
@@ -148,6 +147,21 @@ SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereS
     data['data'] = params
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
+  .then(function(response) {
+    if(cb) cb(response.data.content.length)
+  })
+  .catch(function(error) {
+    if(cb) cb(0)
+  })
+}
+
+SSDB.truncateTable = function(databaseid,tableid, ifexists, cb){
+  var data = {
+    'database_id': databaseid,
+    'table_id': tableid,
+    'if_exists' : ! ifexists,    
+  }
+  return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/truncate', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
   })

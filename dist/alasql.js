@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-dc-safe.storage-1563 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-dc-safe.storage-1564 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-dc-safe.storage-1563
+@version 0.4.3-dc-safe.storage-1564
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-dc-safe.storage-1563';
+alasql.version = '0.4.3-dc-safe.storage-1564';
 
 /**
 	Debug flag
@@ -17589,7 +17589,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
 }
 
 SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
-  var deleted = []
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
@@ -17600,6 +17599,20 @@ SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereS
     data['data'] = params
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data/delete', data)
+  .then(function(response) {
+    if(cb) cb(response.data.content.length)
+  })["catch"](function(error) {
+    if(cb) cb(0)
+  })
+}
+
+SSDB.truncateTable = function(databaseid,tableid, ifexists, cb){
+  var data = {
+    'database_id': databaseid,
+    'table_id': tableid,
+    'if_exists' : ! ifexists,    
+  }
+  return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/truncate', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
   })["catch"](function(error) {
