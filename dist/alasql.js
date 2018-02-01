@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-dc-safe.storage-1564 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-dc-safe.storage-1565 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-dc-safe.storage-1564
+@version 0.4.3-dc-safe.storage-1565
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-dc-safe.storage-1564';
+alasql.version = '0.4.3-dc-safe.storage-1565';
 
 /**
 	Debug flag
@@ -12470,7 +12470,6 @@ yy.AlterTable.prototype.toString = function() {
 yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 	var db = alasql.databases[databaseid];
 	db.dbversion = Date.now();
-
 	if(this.renameto) {
 		var oldtableid = this.table.tableid;
 		var newtableid = this.renameto;
@@ -12485,6 +12484,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 				delete db.tables[oldtableid];
 				res = 1;
 			};
+
+			if(alasql.options.autocommit && db.engineid) {
+				alterType = {
+					'alteration' : 'rename_table',
+					'old' : oldtableid,
+					'new' : newtableid
+				}
+				alasql.engines[db.engineid].alterTable(
+					databaseid, oldtableid, cb, alterType);
+	 		}	
+
 			if(cb) cb(res)
 			return res;
 	} else if(this.addcolumn) {
@@ -12516,7 +12526,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 			table.data[i][columnid] = defaultfn();
 		}
 
-		// TODO
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'add_column',
+				'column' : this.addcolumn.columnid,
+				'type' : this.addcolumn.dbtypeid,				
+				'notnull' : false
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }	
+
 		return cb?cb(1):1;
 	} else if(this.modifycolumn) {
 		var db = alasql.databases[this.table.databaseid || databaseid];
@@ -12535,7 +12555,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 		col.dbprecision = this.dbprecision;
 		col.dbenum = this.dbenum;
 
-		// TODO
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'modify_column',
+				'column' : this.modifycolumn.columnid,
+				'type' : this.modifycolumn.dbtypeid,				
+				'notnull' : false				
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }
+
 		return cb?cb(1):1;
 	} else if(this.renamecolumn) {
 		var db = alasql.databases[this.table.databaseid || databaseid];
@@ -12553,6 +12583,16 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 		if(table.xcolumns[tocolumnid]) {
 			throw new Error('Column "'+tocolumnid+'" already exists in the table "'+tableid+'"');
 		}
+
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'rename_column',
+				'old' : columnid,
+				'new' : tocolumnid
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }
 
 		if(columnid != tocolumnid) {
 			for(var j=0; j<table.columns.length; j++) {
@@ -12592,6 +12632,15 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 
 		if(!found) {
 			throw new Error('Cannot drop column "'+columnid+'", because it was not found in the table "'+tableid+'"');
+		}
+
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'drop_column',
+				'column' : columnid
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
 		}
 
 		delete table.xcolumns[columnid];
@@ -17613,6 +17662,19 @@ SSDB.truncateTable = function(databaseid,tableid, ifexists, cb){
     'if_exists' : ! ifexists,    
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/truncate', data)
+  .then(function(response) {
+    if(cb) cb(response.data.content.length)
+  })["catch"](function(error) {
+    if(cb) cb(0)
+  })
+}
+
+SSDB.alterTable = function(databaseid, tableid, cb, alteration) {
+  data = Object.assign(alteration, {
+      'database_id': databaseid,
+      'table_id': tableid,
+  });
+  return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/alter', data)
   .then(function(response) {
     if(cb) cb(response.data.content.length)
   })["catch"](function(error) {

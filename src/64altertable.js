@@ -17,7 +17,6 @@ yy.AlterTable.prototype.toString = function() {
 yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 	var db = alasql.databases[databaseid];
 	db.dbversion = Date.now();
-
 	if(this.renameto) {
 		var oldtableid = this.table.tableid;
 		var newtableid = this.renameto;
@@ -32,6 +31,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 				delete db.tables[oldtableid];
 				res = 1;
 			};
+
+			if(alasql.options.autocommit && db.engineid) {
+				alterType = {
+					'alteration' : 'rename_table',
+					'old' : oldtableid,
+					'new' : newtableid
+				}
+				alasql.engines[db.engineid].alterTable(
+					databaseid, oldtableid, cb, alterType);
+	 		}	
+
 			if(cb) cb(res)
 			return res;
 	} else if(this.addcolumn) {
@@ -63,7 +73,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 			table.data[i][columnid] = defaultfn();
 		}
 
-		// TODO
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'add_column',
+				'column' : this.addcolumn.columnid,
+				'type' : this.addcolumn.dbtypeid,				
+				'notnull' : false
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }	
+
 		return cb?cb(1):1;
 	} else if(this.modifycolumn) {
 		var db = alasql.databases[this.table.databaseid || databaseid];
@@ -82,8 +102,17 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 		col.dbprecision = this.dbprecision;
 		col.dbenum = this.dbenum;
 
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'modify_column',
+				'column' : this.modifycolumn.columnid,
+				'type' : this.modifycolumn.dbtypeid,				
+				'notnull' : false				
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }
 
-		// TODO
 		return cb?cb(1):1;
 	} else if(this.renamecolumn) {
 		var db = alasql.databases[this.table.databaseid || databaseid];
@@ -101,6 +130,16 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 		if(table.xcolumns[tocolumnid]) {
 			throw new Error('Column "'+tocolumnid+'" already exists in the table "'+tableid+'"');
 		}
+
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'rename_column',
+				'old' : columnid,
+				'new' : tocolumnid
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
+		 }
 
 		if(columnid != tocolumnid) {
 			for(var j=0; j<table.columns.length; j++) {
@@ -140,6 +179,15 @@ yy.AlterTable.prototype.execute = function (databaseid, params, cb) {
 
 		if(!found) {
 			throw new Error('Cannot drop column "'+columnid+'", because it was not found in the table "'+tableid+'"');
+		}
+
+		if(alasql.options.autocommit && db.engineid) {
+			alterType = {
+				'alteration' : 'drop_column',
+				'column' : columnid
+			}
+			alasql.engines[db.engineid].alterTable(
+				databaseid, tableid, cb, alterType);
 		}
 
 		delete table.xcolumns[columnid];

@@ -170,6 +170,20 @@ SSDB.truncateTable = function(databaseid,tableid, ifexists, cb){
   })
 }
 
+SSDB.alterTable = function(databaseid, tableid, cb, alteration) {
+  data = Object.assign(alteration, {
+      'database_id': databaseid,
+      'table_id': tableid,
+  });
+  return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/alter', data)
+  .then(function(response) {
+    if(cb) cb(response.data.content.length)
+  })
+  .catch(function(error) {
+    if(cb) cb(0)
+  })
+}
+
 SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment){
   var updated = []
   var data = {
