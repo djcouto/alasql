@@ -104,7 +104,7 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
 }
 
 
-SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
+SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement){
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
@@ -113,7 +113,8 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
     'limit': query.top ? query.top : (query.limit ? query.limit : -1),
     'percentage': query.percent ? query.percent : 100,
     'offset': query.offset ? query.offset : 0,    
-    'where' : whereStatement ? whereStatement.expression : undefined
+    'where' : whereStatement ? whereStatement.expression : undefined,
+    'order_by' : orderByStatement ? orderByStatement : undefined
   }
   if(computedOutside) {
     query.distinct = false

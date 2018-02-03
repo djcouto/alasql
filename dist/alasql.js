@@ -1,7 +1,7 @@
-//! AlaSQL v0.4.3-dc-safe.storage-1565 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
+//! AlaSQL v0.4.3-dc-safe.storage-1566 | © 2014-2016 Andrey Gershun & Mathias Rangel Wulff | License: MIT 
 /*
 @module alasql
-@version 0.4.3-dc-safe.storage-1565
+@version 0.4.3-dc-safe.storage-1566
 
 AlaSQL - JavaScript SQL database
 © 2014-2016	Andrey Gershun & Mathias Rangel Wulff
@@ -137,7 +137,7 @@ var alasql = function(sql, params, cb, scope) {
 	Current version of alasql 
  	@constant {string} 
 */
-alasql.version = '0.4.3-dc-safe.storage-1565';
+alasql.version = '0.4.3-dc-safe.storage-1566';
 
 /**
 	Debug flag
@@ -7168,7 +7168,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 	// 1. Compile FROM clause
 	if(this.where && db.computedOutside) {
-		query.fromfn = this.compileFrom(query, this.where);
+		query.fromfn = this.compileFrom(query, this.where, this.order);
 		this.where = undefined
 	} else {
 		query.fromfn = this.compileFrom(query);		
@@ -7205,7 +7205,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	}
 
 	// 8. Compile ORDER BY clause
-	if(this.order){
+	if(this.order && ! db.computedOutside){
 		query.orderfn = this.compileOrder(query);
 	}
 
@@ -7568,7 +7568,7 @@ alasql.precompile = function(statement,databaseid,params){
 //
 */
 
-yy.Select.prototype.compileFrom = function(query, whereStatement) {
+yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStatement) {
 
 	var self = this;
 	query.sources = [];
@@ -7628,7 +7628,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement) {
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx, query, whereStatement);
+						source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {
@@ -17607,7 +17607,7 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
   })
 }
 
-SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
+SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement){
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
@@ -17616,7 +17616,8 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
     'limit': query.top ? query.top : (query.limit ? query.limit : -1),
     'percentage': query.percent ? query.percent : 100,
     'offset': query.offset ? query.offset : 0,    
-    'where' : whereStatement ? whereStatement.expression : undefined
+    'where' : whereStatement ? whereStatement.expression : undefined,
+    'order_by' : orderByStatement ? orderByStatement : undefined
   }
   if(computedOutside) {
     query.distinct = false

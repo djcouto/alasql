@@ -168,7 +168,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 	// 1. Compile FROM clause
 	if(this.where && db.computedOutside) {
-		query.fromfn = this.compileFrom(query, this.where);
+		query.fromfn = this.compileFrom(query, this.where, this.order);
 		this.where = undefined
 	} else {
 		query.fromfn = this.compileFrom(query);		
@@ -206,7 +206,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 
 
 	// 8. Compile ORDER BY clause
-	if(this.order){
+	if(this.order && ! db.computedOutside){
 		query.orderfn = this.compileOrder(query);
 	}
 
