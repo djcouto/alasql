@@ -158,21 +158,8 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	
 	query.defcols = this.compileDefCols(query, databaseid);
 
-	// 5. Optimize WHERE and JOINS
-	if(this.where){
-		this.compileWhereJoins(query);
-	}
-
-	// 4. Compile WHERE clause
-	query.wherefn = this.compileWhere(query);
-
 	// 1. Compile FROM clause
-	if(this.where && db.computedOutside) {
-		query.fromfn = this.compileFrom(query, this.where, this.order);
-		this.where = undefined
-	} else {
-		query.fromfn = this.compileFrom(query);		
-	}
+	query.fromfn = this.compileFrom(query, this.where, this.order);
 
 	// 2. Compile JOIN clauses
 	if(this.joins){
@@ -191,8 +178,18 @@ yy.Select.prototype.compile = function(databaseid, params) {
 		query.selectfns = this.compileSelect1(query, params);
 	}
 
-	// Remove columns clause
-	this.compileRemoveColumns(query);
+	// 5. Optimize WHERE and JOINS
+	if (this.where) {
+		this.compileWhereJoins(query);
+	}
+
+	// 4. Compile WHERE clause
+	if (this.where && ! db.compiledOutside) {
+		query.wherefn = this.compileWhere(query);
+	} else {
+		this.where = undefined
+	}
+
 	
 	// 6. Compile GROUP BY
 	if(this.group || query.selectGroup.length>0){
@@ -208,6 +205,8 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	// 8. Compile ORDER BY clause
 	if(this.order && ! db.computedOutside){
 		query.orderfn = this.compileOrder(query);
+	} else {
+		this.order = undefined
 	}
 
 	if(this.group || query.selectGroup.length>0) {
