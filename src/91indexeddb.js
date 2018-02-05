@@ -38,7 +38,6 @@ if(utils.hasIndexedDB) {
 // work only in chrome
 //
 IDB.showDatabases = function(like,cb) {
-	console.log('showDatabases', arguments)
 	var request = IDB.getDatabaseNames();
 	request.onsuccess = function(event) {
 		var dblist = event.target.result;
@@ -60,7 +59,6 @@ IDB.showDatabases = function(like,cb) {
 
 
 IDB.createDatabase = function(ixdbid, args, ifnotexists, dbid, cb){
-	console.log('createDatabase', arguments)
   var indexedDB = utils.global.indexedDB;
 	if(IDB.getDatabaseNamesNotSupported) {
 		// Hack for Firefox
@@ -126,7 +124,6 @@ IDB.createDatabase = function(ixdbid, args, ifnotexists, dbid, cb){
 
 
 IDB.dropDatabase = function(ixdbid, ifexists, cb){
-	console.log('dropDatabase', arguments)
   var indexedDB = utils.global.indexedDB;
 	var request1 = IDB.getDatabaseNames();
 	request1.onsuccess = function(event) {
@@ -148,8 +145,6 @@ IDB.dropDatabase = function(ixdbid, ifexists, cb){
 };
 
 IDB.attachDatabase = function(ixdbid, dbid, args, params, cb) {
-	console.log('attachDatabase', arguments)
-
 	if(!utils.hasIndexedDB){
 		throw new Error('The current browser does not support IndexedDB');
 	}
@@ -190,7 +185,6 @@ IDB.attachDatabase = function(ixdbid, dbid, args, params, cb) {
 
 
 IDB.createTable = function(databaseid, tableid, ifnotexists, cb) {
-	console.log('createTable', arguments)
   var indexedDB = utils.global.indexedDB;
 //	console.log(arguments);
 	var ixdbid = alasql.databases[databaseid].ixdbid;
@@ -235,7 +229,6 @@ IDB.createTable = function(databaseid, tableid, ifnotexists, cb) {
 };
 
 IDB.dropTable = function (databaseid, tableid, ifexists, cb) {
-	console.log('dropTable', arguments)
   var indexedDB = utils.global.indexedDB;
 	var ixdbid = alasql.databases[databaseid].ixdbid;
 
@@ -288,7 +281,6 @@ IDB.dropTable = function (databaseid, tableid, ifexists, cb) {
 }
 
 IDB.intoTable = function(databaseid, tableid, value, columns, cb) {
-	console.log('intoTable', arguments)
 	// console.log(arguments);
 	// console.trace();
 //	console.log('intoTable',databaseid, tableid, value, cb);
@@ -325,7 +317,6 @@ IDB.intoTable = function(databaseid, tableid, value, columns, cb) {
 
 
 IDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
-	console.log('fromTable', arguments)
 	// console.log(arguments);
 	// console.trace();
 	var indexedDB = utils.global.indexedDB;
@@ -363,7 +354,6 @@ IDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement){
 }
 
 IDB.deleteFromTable = function(databaseid, tableid, wherefn,params, cb){
-	console.log('deleteFromTable', arguments)
 	// console.log(arguments);
 	// console.trace();
   var indexedDB = utils.global.indexedDB;
@@ -406,8 +396,6 @@ IDB.deleteFromTable = function(databaseid, tableid, wherefn,params, cb){
 }
 
 IDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb){
-	console.log('updateTable', arguments)
-	
 	// console.log(arguments);
 	// console.trace();
   var indexedDB = utils.global.indexedDB;

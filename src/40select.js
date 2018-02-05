@@ -172,11 +172,15 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.rownums = [];
 	
 	this.compileSelectGroup0(query);
+
 	if(this.group || query.selectGroup.length>0) {
 		query.selectgfns = this.compileSelectGroup1(query);
 	} else {
 		query.selectfns = this.compileSelect1(query, params);
 	}
+
+	// Remove columns clause
+	this.compileRemoveColumns(query);
 
 	// 5. Optimize WHERE and JOINS
 	if (this.where) {
@@ -184,13 +188,13 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	}
 
 	// 4. Compile WHERE clause
-	if (this.where && ! db.compiledOutside) {
-		query.wherefn = this.compileWhere(query);
+	if(db.computedOutside) {
+		query.wherefn = function(){return true};
 	} else {
-		this.where = undefined
+		query.wherefn = this.compileWhere(query);
+
 	}
 
-	
 	// 6. Compile GROUP BY
 	if(this.group || query.selectGroup.length>0){
 		query.groupfn = this.compileGroup(query);

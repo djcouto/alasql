@@ -1,3 +1,5 @@
+dist/
+
 # Results of tests
 test/res*
 node_modules/
@@ -6,4 +8,3 @@ site/
 test/test604.json
 .versions
 .npm/
-dist/*
