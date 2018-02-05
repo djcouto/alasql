@@ -6,3 +6,4 @@ site/
 test/test604.json
 .versions
 .npm/
+dist/*
