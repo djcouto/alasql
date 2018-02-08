@@ -141,8 +141,12 @@ if(false) {
 				if(col.distinct) {
 					aft += ',g[\'$$_VALUES_'+colas+'\']={},g[\'$$_VALUES_'+colas+'\']['+colexp+']=true';
 				}
-				if (col.aggregatorid === 'SUM') { 
-					return "'"+colas+'\':('+colexp+')||0,'; 
+				if (col.aggregatorid === 'SUM') {
+					if(query.database.computedOutside) {
+						return "'"+colas+'\':('+"p['"+tableid+"']['"+colas+"'])||0,";						
+					} else {
+						return "'"+colas+'\':('+colexp+')||0,';						
+					}
 				} else if (
 							col.aggregatorid === 'MIN'
 							|| col.aggregatorid === 'MAX'
@@ -151,31 +155,43 @@ if(false) {
 		//					|| col.aggregatorid == 'AVG'
 //							) { return "'"+col.as+'\':r[\''+col.as+'\'],'; }//f.field.arguments[0].toJS(); 	
 				){ 
-					return "'"+colas+'\':'+colexp+','; //f.field.arguments[0].toJS(); 	
+					if(query.database.computedOutside) {
+						return "'"+colas+'\':('+"p['"+tableid+"']['"+colas+"'])||0,";						
+					} else {
+						return "'"+colas+'\':'+colexp+','; //f.field.arguments[0].toJS(); 	
+					}
 				
 				} else if(col.aggregatorid === 'ARRAY') {
 				 	return "'"+colas+'\':['+colexp+'],';
 
-				} else if(col.aggregatorid === 'COUNT') { 
-					if(col.expression.columnid === '*') {
-						return "'"+colas+'\':1,';
-					} else {
-//						return "'"+colas+'\':(typeof '+colexp+' != "undefined")?1:0,';  
-//					} else {
-						return "'"+colas+'\':(typeof '+colexp+' != "undefined")?1:0,'; 
+				} else if(col.aggregatorid === 'COUNT') {
+					if(query.database.computedOutside) {
+						return "'"+colas+'\':('+"p['"+tableid+"']['"+colas+"'])||0,";						
+					} else { 
+						if(col.expression.columnid === '*') {
+							return "'"+colas+'\':1,';
+						} else {
+		//						return "'"+colas+'\':(typeof '+colexp+' != "undefined")?1:0,';  
+		//					} else {
+							return "'"+colas+'\':(typeof '+colexp+' != "undefined")?1:0,'; 
+						}
 					}
 
 //				else if(col.aggregatorid == 'MIN') { return "'"+col.as+'\':r[\''+col.as+'\'],'; }
 //				else if(col.aggregatorid == 'MAX') { return "'"+col.as+'\':r[\''+col.as+'\'],'; }
 				} else if(col.aggregatorid === 'AVG') { 
-					query.removeKeys.push('_SUM_'+colas);
-					query.removeKeys.push('_COUNT_'+colas);
-					
-					return	''
-							+ "'" + colas + '\':' + colexp + ',\'_SUM_'
-							+ colas+'\':(' + colexp + ')||0,\'_COUNT_'
-							+ colas + '\':(typeof '
-							+ colexp+' != "undefined")?1:0,'; 
+					if(query.database.computedOutside) {
+						return "'"+colas+'\':('+"p['"+tableid+"']['"+colas+"'])||0,";						
+					} else {
+						query.removeKeys.push('_SUM_'+colas);
+						query.removeKeys.push('_COUNT_'+colas);
+						
+						return	''
+								+ "'" + colas + '\':' + colexp + ',\'_SUM_'
+								+ colas+'\':(' + colexp + ')||0,\'_COUNT_'
+								+ colas + '\':(typeof '
+								+ colexp+' != "undefined")?1:0,';
+					} 
 				} else if(col.aggregatorid === 'AGGR') {
 					aft += ',g[\''+colas+'\']='+col.expression.toJS('g',-1); 
 					return '';
@@ -277,12 +293,13 @@ if(false) {
 				if (col.aggregatorid === 'SUM') { 
 					return pre+'g[\''+colas+'\']+=('+colexp+'||0);'+post; //f.field.arguments[0].toJS(); 
 				} else if(col.aggregatorid === 'COUNT') {
-//					console.log(221,col.expression.columnid == '*');
-					if(col.expression.columnid === '*'){
-						return pre+'g[\''+colas+'\']++;'+post; 
-					} else {
-						return pre+'if(typeof '+colexp+'!="undefined") g[\''+colas+'\']++;'+post;
-					}
+	//					console.log(221,col.expression.columnid == '*');
+						if(col.expression.columnid === '*'){
+							return pre+'g[\''+colas+'\']++;'+post; 
+						} else {
+							return pre+'if(typeof '+colexp+'!="undefined") g[\''+colas+'\']++;'+post;
+						}
+					// }
 				
 				} else if(col.aggregatorid === 'ARRAY') { 
 					return pre+'g[\''+colas+'\'].push('+colexp+');'+post; 
@@ -344,7 +361,6 @@ if(false) {
 		s += '}';
 
 	});
-
 //		console.log('groupfn',s);
 	return new Function('p,params,alasql','var y;'+s);
 

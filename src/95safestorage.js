@@ -109,6 +109,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     'database_id': databaseid,
     'table_id': tableid,
     'fields': query.selectColumns,
+    'aggregators': query.selectGroup,
     'distinct': query.distinct,
     'limit': query.top ? query.top : (query.limit ? query.limit : -1),
     'percentage': query.percent ? query.percent : 100,

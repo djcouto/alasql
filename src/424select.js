@@ -102,16 +102,12 @@ yy.Select.prototype.compileSelect1 = function(query, params) {
 	var sp = '';
 	var ss = [];
 
-	if(query.database.computedOutside) {
-
-	}
-
 //console.log(42,87,this.columns);
 
 	this.columns.forEach(function(col){
 //console.log(col);		
 		if(col instanceof yy.Column) {
-			if(col.columnid === '*' /*|| query.database.computedOutside*/) {
+			if(col.columnid === '*') {
 				if(col.func) {
 					sp += 'r=params[\''+col.param+'\'](p[\''+query.sources[0].alias+'\'],p,params,alasql);';
 				} else if(col.tableid) {
@@ -418,9 +414,9 @@ yy.Select.prototype.compileSelectGroup1 = function(query) {
 //			// };
 //			// s += ';';
 //			console.log(col);//,col.toJS('g',''));
+			
 
-
- 			s += n2u(col.toJS('g',''))+';';				
+			 s += n2u(col.toJS('g',''))+';';	
 /*/*
 			s += 'g[\''+col.nick+'\'];';
 
