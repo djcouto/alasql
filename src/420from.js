@@ -6,7 +6,7 @@
 //
 */
 
-yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStatement) {
+yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStatement, joinStatement) {
     //	console.log(1);
 	var self = this;
 	query.sources = [];
@@ -67,7 +67,13 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 // console.log(0,source.databaseid);
 // console.log(1,alasql.databases[source.databaseid]);
 // console.log(2,alasql.databases[source.databaseid].tables[source.tableid].view);
-		if(alasql.options.autocommit && alasql.databases[source.databaseid].engineid &&
+		if (joinStatement != undefined && alasql.databases[source.databaseid].computedOutside) {
+			source.datafn = function(query,params,cb,idx, alasql) {
+				return alasql.engines[alasql.databases[source.databaseid].engineid].joinTable(
+					source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement, joinStatement);
+			}
+
+		} else if(alasql.options.autocommit && alasql.databases[source.databaseid].engineid &&
 		   !alasql.databases[source.databaseid].tables[source.tableid].view
 		  ) {
 //				console.log(997,alasql.databases[source.databaseid].engineid);

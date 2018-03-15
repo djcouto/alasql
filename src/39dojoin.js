@@ -3,6 +3,10 @@
 //
 
 function doJoin (query, scope, h) {
+	if (query.join) {
+		query.data = query.join				
+	} else
+
 //	console.log('doJoin', arguments);
 //	console.log(query.sources.length);
 	// Check, if this is a last join?
@@ -23,7 +27,7 @@ function doJoin (query, scope, h) {
 //				query.qwerty = 999;
 //console.log(query.qwerty, query.queriesfn && query.queriesfn.length,2);
 				query.data.push(query.selectfn(scope, query.params, alasql));
-			}	
+			}
 		}
 	} else if(query.sources[h].applyselect) {
 //		console.log('APPLY',scope);

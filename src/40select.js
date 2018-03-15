@@ -159,10 +159,10 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.defcols = this.compileDefCols(query, databaseid);
 
 	// 1. Compile FROM clause
-	query.fromfn = this.compileFrom(query, this.where, this.order);
+	query.fromfn = this.compileFrom(query, this.where, this.order, this.joins);
 
 	// 2. Compile JOIN clauses
-	if(this.joins){
+	if(this.joins && ! db.computedOutside){
 		this.compileJoins(query);
 	}
 
@@ -192,7 +192,6 @@ yy.Select.prototype.compile = function(databaseid, params) {
 		query.wherefn = function(){return true};
 	} else {
 		query.wherefn = this.compileWhere(query);
-
 	}
 
 	// 6. Compile GROUP BY

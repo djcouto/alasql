@@ -11,7 +11,7 @@ var computedOutside;
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   var db = new alasql.Database(dbid || ssdbid);
   db.engineid = "SAFESTORAGE";
-  db.computedOutside = true
+  db.computedOutside = false
   db.ssdbid = ssdbid;
   db.tables = [];
   computedOutside = db.computedOutside;
@@ -136,6 +136,32 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       if(cb) cb(0, idx, query)
     })
   }
+}
+
+SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, joinStatement){
+  var data = {
+    'database_id': databaseid,
+    'fields': query.selectColumns,
+    'aggregators': query.selectGroup,
+    'distinct': query.distinct,
+    'limit': query.top ? query.top : (query.limit ? query.limit : -1),
+    'percentage': query.percent ? query.percent : 100,
+    'offset': query.offset ? query.offset : 0,    
+    'where' : whereStatement ? whereStatement.expression : undefined,
+    'order_by' : orderByStatement ? orderByStatement : undefined,
+    'join_statement': joinStatement,
+    'aliases': query.aliases
+  }
+  query.distinct = false
+  query.selectColumns = {}
+  return axios.post('http://localhost:4567/databases/' + databaseid + '/join', data)
+  .then(function(response) {
+    query.join = response.data.content.data
+    if(cb) cb(response.data.content.data, idx, query)
+  })
+  .catch(function(error) {
+    if(cb) cb(0, idx, query)
+  })
 }
 
 SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereStatement){
