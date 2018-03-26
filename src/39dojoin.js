@@ -4,7 +4,8 @@
 
 function doJoin (query, scope, h) {
 	if (query.join) {
-		query.data = query.join				
+		query.data = query.join	
+		query.groups = query.join		
 	} else
 
 //	console.log('doJoin', arguments);

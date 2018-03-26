@@ -190,7 +190,6 @@ function queryfn3(query) {
 
 				if(gfn) gfn(g,query.params,alasql);
 
-
 	//			console.log(query.groups[i]);
 				if((!query.havingfn) || query.havingfn(g,query.params,alasql)) {
 	//				console.log(g);

@@ -172,7 +172,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	query.rownums = [];
 	
 	this.compileSelectGroup0(query);
-
+	
 	if(this.group || query.selectGroup.length>0) {
 		query.selectgfns = this.compileSelectGroup1(query);
 	} else {
@@ -197,7 +197,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	// 6. Compile GROUP BY
 	if(this.group || query.selectGroup.length>0){
 		query.groupfn = this.compileGroup(query);
-	}
+	}	
 
 	// 6. Compile HAVING
 	if(this.having){
@@ -217,7 +217,7 @@ yy.Select.prototype.compile = function(databaseid, params) {
 	} else {
 		query.selectfn = this.compileSelect2(query);
 	}
-
+		
 	// 7. Compile DISTINCT, LIMIT and OFFSET
 	query.distinct = this.distinct ? true : false;
 	

@@ -102,7 +102,7 @@ yy.Select.prototype.compileSelect1 = function(query, params) {
 	var sp = '';
 	var ss = [];
 
-//console.log(42,87,this.columns);
+	//console.log(42,87,this.columns);
 
 	this.columns.forEach(function(col){
 //console.log(col);		

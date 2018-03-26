@@ -1,6 +1,5 @@
 //
 // 97safestorage.js
-// AlaSQL IndexedDB module
 // Date: 21.11.2017
 // (c) Diogo Couto
 //
@@ -93,6 +92,8 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
     'database_id': databaseid,
     'table_id': tableid,
     'data' : value,
+    'columns' : Object.keys(value[0]),
+    'fields': columns
   }
   return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {
@@ -104,8 +105,9 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
 }
 
 
-SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement){
+SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, aliases, group){
   var data = {
+    'aliases': query.aliases,
     'database_id': databaseid,
     'table_id': tableid,
     'fields': query.selectColumns,
@@ -115,7 +117,10 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     'percentage': query.percent ? query.percent : 100,
     'offset': query.offset ? query.offset : 0,    
     'where' : whereStatement ? whereStatement.expression : undefined,
-    'order_by' : orderByStatement ? orderByStatement : undefined
+    'order_by' : orderByStatement ? orderByStatement : undefined,
+    'columns' : query.xcolumns,
+    'column_aliases' : aliases,
+    'group_by': group
   }
   if(computedOutside) {
     query.distinct = false
@@ -128,7 +133,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       if(cb) cb(0, idx, query)
     })
   } else {
-    return axios.get('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid)
+    return axios.post('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid, data)
     .then(function(response) {
       if(cb) cb(response.data.content.data, idx, query)
     })
@@ -138,7 +143,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
   }
 }
 
-SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, joinStatement){
+SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, joinStatement, aliases, group){
   var data = {
     'database_id': databaseid,
     'fields': query.selectColumns,
@@ -150,7 +155,10 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     'where' : whereStatement ? whereStatement.expression : undefined,
     'order_by' : orderByStatement ? orderByStatement : undefined,
     'join_statement': joinStatement,
-    'aliases': query.aliases
+    'aliases': query.aliases,
+    'columns' : query.xcolumns,
+    'column_aliases' : aliases,
+    'group_by': group,
   }
   query.distinct = false
   query.selectColumns = {}
@@ -212,17 +220,14 @@ SSDB.alterTable = function(databaseid, tableid, cb, alteration) {
   })
 }
 
-SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatment){
-  var updated = []
+SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, whereStatement, assignStatement){
   var data = {
     'database_id': databaseid,
-    'table_id': tableid
+    'table_id': tableid,
+    'assign': assignStatement
   }
   if(computedOutside) {
     data['where'] = whereStatement
-    data['assign'] = assignStatment
-  } else {
-    data['data'] = params
   }
   return axios.put('http://localhost:4567/databases/' + databaseid + '/tables/' + tableid + '/data', data)
   .then(function(response) {

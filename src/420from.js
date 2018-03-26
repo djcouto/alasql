@@ -14,6 +14,8 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 //	var as = '';
 //	if(self.from[0].as) as = this.from[0].as;
 //console.log(this);
+	var columns = this.columns
+	var group = this.group
 	query.aliases = {};
 	if(!self.from) return;
 
@@ -70,7 +72,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 		if (joinStatement != undefined && alasql.databases[source.databaseid].computedOutside) {
 			source.datafn = function(query,params,cb,idx, alasql) {
 				return alasql.engines[alasql.databases[source.databaseid].engineid].joinTable(
-					source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement, joinStatement);
+					source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement, joinStatement, columns, group);
 			}
 
 		} else if(alasql.options.autocommit && alasql.databases[source.databaseid].engineid &&
@@ -80,7 +82,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 // TODO -- make view for external engine
 		    source.datafn = function(query,params,cb,idx, alasql) {
 					return alasql.engines[alasql.databases[source.databaseid].engineid].fromTable(
-						source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement);
+						source.databaseid, source.tableid,cb,idx, query, whereStatement, orderByStatement, columns, group);
 				}				
 	    } else if(alasql.databases[source.databaseid].tables[source.tableid].view){
 		    source.datafn = function(query,params,cb,idx, alasql) {
