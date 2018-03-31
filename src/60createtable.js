@@ -114,9 +114,13 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 			var columnid = col.columnid;
 			var dbtypeid = col.dbtypeid;
 			var notnull = col.notnull || false;
+			var dbprecision = col.dbprecision;
+			var dbsize = col.dbsize;
 			columnsmap[columnid] = {}
 			columnsmap[columnid].type = dbtypeid
 			columnsmap[columnid].notnull = notnull
+			columnsmap[columnid].dbsize = dbsize
+			columnsmap[columnid].dbprecision = dbprecision
 			if(!alasql.fn[dbtypeid]){
 				dbtypeid = dbtypeid.toUpperCase();
 			}

@@ -20,7 +20,6 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 	if(!self.from) return;
 
 //console.log(self.from);
-
 	self.from.forEach(function(tq){
 		//console.log(tq);
 //console.log(tq,tq.toJS());
@@ -223,9 +222,9 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 		} else {
 			throw new Error('Wrong table at FROM');
 		}
-//		source.data = alasql.databases[source.databaseid].tables[source.tableid].data;
-		query.sources.push(source);
-
+		if (! alasql.databases[source.databaseid].computedOutside || query.sources.length === 0) {
+			query.sources.push(source);			
+		}
 	});
 	// TODO Add joins
 	query.defaultTableid = query.sources[0].alias;
