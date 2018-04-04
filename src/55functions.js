@@ -148,7 +148,7 @@ stdlib.INSTR = function(s,p) {return '(('+s+').indexOf('+p+')+1)'};
 
 //stdlib.LEN = stdlib.LENGTH = function(s) {return '('+s+'+"").length';};
 
-
+stdlib.MOD = function(a, b) {return a + ' % ' + b}
 
 stdlib.LEN = stdlib.LENGTH = function(s) {return und(s,'y.length');}
 //stdlib.LENGTH = function(s) {return '('+s+').length'};

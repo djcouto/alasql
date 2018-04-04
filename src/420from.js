@@ -110,7 +110,7 @@ yy.Select.prototype.compileFrom = function(query, whereStatement, orderByStateme
 				};
 			}
 		} else if(tq instanceof yy.Select) {
-
+			
 			source.subquery = tq.compile(query.database.databaseid);
 			if(typeof source.subquery.query.modifier == 'undefined') {
 				source.subquery.query.modifier = 'RECORDSET'; // Subqueries always return recordsets

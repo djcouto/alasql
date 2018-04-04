@@ -9,7 +9,7 @@ var computedOutside;
 
 // var host = 'http://localhost:4567'
 var host = 'http://192.168.112.54:8080/safe-storage-1.0';
-const ROWS_PER_REQUEST = 200000;
+const ROWS_PER_REQUEST = 150000;
 
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   var db = new alasql.Database(dbid || ssdbid);
@@ -172,6 +172,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
+      query.join = response.content.data
       if(cb) cb(response.content.data, idx, query)
     })
     .catch(function(error) {
@@ -183,7 +184,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
-      console.log(response.content.data)
       if(cb) cb(response.content.data, idx, query)
     })
     .catch(function(error) {
