@@ -6,23 +6,29 @@
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
 var computedOutside;
+var secure;
+var password = 'supersecretpassword'
+var key = password
+var db
 
 // var host = 'http://localhost:4567'
 var host = 'http://192.168.112.54:8080/safe-storage-1.0';
-const ROWS_PER_REQUEST = 150000;
+const ROWS_PER_REQUEST = 50000;
 
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
-  var db = new alasql.Database(dbid || ssdbid);
+  db = new alasql.Database(dbid || ssdbid); 
   db.engineid = "SAFESTORAGE";
   db.computedOutside = true
+  db.secure = false
   db.ssdbid = ssdbid;
   db.tables = [];
   computedOutside = db.computedOutside;
+  secure = db.secure;
   if(cb) cb(1)
 }
 
 SSDB.showDatabases = function(like,cb) {  
-  fetch(host + '/databases', {method: 'GET'})
+  return fetch(host + '/databases', {method: 'GET'})
   .then(function(response) {
     return response.json()
   })
@@ -39,7 +45,7 @@ SSDB.createDatabase = function(ssdbid, args, ifnotexists, dbid, cb){
     'database_id': ssdbid,
     'if_exists' : ! ifnotexists
   }
-  fetch(host + '/databases/create', {method: 'POST', body: JSON.stringify(data)})
+  return fetch(host + '/databases/create', {method: 'POST', body: JSON.stringify(data)})
   .then(function(response) {
     if(cb) cb(1)
   })
@@ -54,7 +60,7 @@ SSDB.dropDatabase = function(ssdbid, ifexists, cb){
     'database_id': ssdbid,
     'if_exists' : ifexists
   }
-  fetch(host + '/databases/' + ssdbid + '/delete', {method: 'POST', body: JSON.stringify(data)})
+  return fetch(host + '/databases/' + ssdbid + '/delete', {method: 'POST', body: JSON.stringify(data)})
   .then(function(response) {
     if(cb) cb(1)
   })
@@ -63,7 +69,7 @@ SSDB.dropDatabase = function(ssdbid, ifexists, cb){
   })
 }
 
-SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {  
+SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {
   var data = {
     'database_id': databaseid,
     'table_id': tableid,
@@ -76,7 +82,7 @@ SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {
   })
   .catch(function(error) {
     if(cb) cb(0)
-  })	
+  })
 }
 
 SSDB.dropTable = function (databaseid, tableid, ifexists, cb) {  
@@ -94,16 +100,25 @@ SSDB.dropTable = function (databaseid, tableid, ifexists, cb) {
   })
 }
 
-SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {  
+SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
+  var requestData
+  var encryptedColumns = db.tables[tableid].ecolumns
+
+  if (secure) {
+    requestData = encrypt(values, encryptedColumns)
+  } else {
+    requestData = values
+  }
+
   // Check the number of rows is bigger than 200 000
-  var size = value.length;
-  var columnsNames = Object.keys(value[0])
+  var size = values.length;
+  var columnsNames = Object.keys(values[0])
 
   if (size < ROWS_PER_REQUEST) {
     var data = {
       'database_id': databaseid,
       'table_id': tableid,
-      'data' : value,
+      'data' : requestData,
       'columns' : columnsNames,
       'fields': columns
     }
@@ -120,7 +135,7 @@ SSDB.intoTable = function(databaseid, tableid, value, columns, cb) {
     var part, end, start, data
     end = ROWS_PER_REQUEST
     for(var start = 0; start < size;) {
-      part = value.slice(start, end)
+      part = requestData.slice(start, end)
       data = {
         'database_id': databaseid,
         'table_id': tableid,
@@ -164,6 +179,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     'column_aliases' : aliases,
     'group_by': group,
   }
+  var encryptedColumns = db.tables[tableid].ecolumns  
   if(computedOutside) {
     query.distinct = false
     query.selectColumns = {}
@@ -172,8 +188,14 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
-      query.join = response.content.data
-      if(cb) cb(response.content.data, idx, query)
+      var result
+      if(secure) {
+        result = decrypt(response.content.data, encryptedColumns)
+      } else {
+        result = response.content.data
+      }
+      query.join = result
+      if(cb) cb(result, idx, query)
     })
     .catch(function(error) {
       if(cb) cb(0, idx, query)
@@ -184,7 +206,13 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
-      if(cb) cb(response.content.data, idx, query)
+      var result
+      if(secure) {
+        result = decrypt(response.content.data, encryptedColumns)
+      } else {
+        result = response.content.data
+      }
+      if(cb) cb(result, idx, query)
     })
     .catch(function(error) {
       if(cb) cb(0, idx, query)
@@ -216,8 +244,14 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     return response.json()
   })
   .then(function(response) {
-    query.join = response.content.data
-    if(cb) cb(response.content.data, idx, query)
+    var result
+    if(secure) {
+      result = decrypt(response.content.data, encryptedColumns)
+    } else {
+      result = response.content.data
+    }
+    query.join = result
+    if(cb) cb(result, idx, query)
   })
   .catch(function(error) {
     if(cb) cb(0, idx, query)
@@ -315,4 +349,49 @@ function slice(obj, start, end) {
     i++
   }
   return result
+}
+
+function encrypt(values, encryptedColumns) {
+  var requestData = [];
+  for(var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var encryptedRow = {}
+    
+    for(var column in row) {
+      if(row.hasOwnProperty(column)) {
+        if (encryptedColumns.includes(column)) {
+          encryptedRow[column] = CryptoJS.AES.encrypt(row[column], key).toString()
+          // encryptedRow[column] = CryptoJS.enc.Base64.stringify(CryptoJS.AES.encrypt(row[column], key).ciphertext)
+        } else {
+          encryptedRow[column] = row[column]
+        }
+      }
+    }
+
+    requestData.push(encryptedRow)
+  }
+
+  return requestData
+}
+
+function decrypt(values, encryptedColumns) {
+  var requestData = [];
+  for(var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var decryptedRow = {}
+    
+    for(var column in row) {
+      if(row.hasOwnProperty(column)) {
+        if (encryptedColumns.includes(column)) {
+          decryptedRow[column] = CryptoJS.AES.decrypt(row[column], key).toString(CryptoJS.enc.Utf8)
+        } else {
+          decryptedRow[column] = row[column]
+        }
+      }
+    }
+
+    requestData.push(decryptedRow)
+  }
+
+  return requestData
 }

@@ -29,6 +29,10 @@ yy.ColumnDef.prototype.toString = function() {
 		s += ' NOT NULL';
 	}
 
+	if(this.encrypted){
+		s += ' ENCRYPTED';
+	}
+
 	return s;
 }
 
@@ -116,11 +120,13 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 			var notnull = col.notnull || false;
 			var dbprecision = col.dbprecision;
 			var dbsize = col.dbsize;
+			var encrypted = col.encrypted;
 			columnsmap[columnid] = {}
 			columnsmap[columnid].type = dbtypeid
 			columnsmap[columnid].notnull = notnull
 			columnsmap[columnid].dbsize = dbsize
 			columnsmap[columnid].dbprecision = dbprecision
+			columnsmap[columnid].encrypted = encrypted
 			if(!alasql.fn[dbtypeid]){
 				dbtypeid = dbtypeid.toUpperCase();
 			}
@@ -136,7 +142,8 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 				dbsize: col.dbsize, 			// Fixed issue #150
 				dbprecision: col.dbprecision, 	// Fixed issue #150
 				notnull: col.notnull,
-				identity: col.identity
+				identity: col.identity,
+				encrypted: col.encrypted
 			};
 			if(col.identity) {
 				table.identities[col.columnid]={value:+col.identity.value,step:+col.identity.step};
@@ -214,6 +221,10 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 
 			if(col.onupdate) {
 				uss.push('r[\''+col.columnid+'\']='+col.onupdate.toJS('r',''));
+			}
+
+			if (encrypted) {
+				table.ecolumns.push(newcol.columnid)
 			}
 
 			table.columns.push(newcol);

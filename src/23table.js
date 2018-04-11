@@ -15,6 +15,7 @@ var Table = alasql.Table = function(params){
 	// Step 2: Columns
 	this.columns = [];
 	this.xcolumns = {};
+	this.ecolumns = [];	
 
 	// Step 3: indices
 	this.inddefs = {};
