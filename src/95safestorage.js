@@ -11,14 +11,14 @@ var password = 'supersecretpassword'
 var key = password
 var db
 
-// var host = 'http://localhost:4567'
+// var host = 'http://localhost:8080'
 var host = 'http://192.168.112.54:8080/safe-storage-1.0';
 const ROWS_PER_REQUEST = 50000;
 
 SSDB.attachDatabase = function(ssdbid, dbid, args, params, cb) { 
   db = new alasql.Database(dbid || ssdbid); 
   db.engineid = "SAFESTORAGE";
-  db.computedOutside = true
+  db.computedOutside = false
   db.secure = false
   db.ssdbid = ssdbid;
   db.tables = [];
@@ -100,6 +100,7 @@ SSDB.dropTable = function (databaseid, tableid, ifexists, cb) {
   })
 }
 
+
 SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
   var requestData
   var encryptedColumns = db.tables[tableid].ecolumns
@@ -114,52 +115,34 @@ SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
   var size = values.length;
   var columnsNames = Object.keys(values[0])
 
-  if (size < ROWS_PER_REQUEST) {
-    var data = {
-      'database_id': databaseid,
-      'table_id': tableid,
-      'data' : requestData,
-      'columns' : columnsNames,
-      'fields': columns
-    }
-    
-    return fetch(host + '/databases/' + databaseid + '/tables/' + tableid + '/data', {method: 'POST', body: JSON.stringify(data)})
-    .then(function(response) {
-      if(cb) cb(size)
-    })
-    .catch(function(error) {
-      if(cb) cb(0)
-    })
-  } else {
-    var promises = new Array()
-    var part, end, start, data
-    end = ROWS_PER_REQUEST
-    for(var start = 0; start < size;) {
-      part = requestData.slice(start, end)
-      data = {
-        'database_id': databaseid,
-        'table_id': tableid,
-        'data' : part,
-        'columns' : columnsNames,
-        'fields': columns
-      }
-      promises.push(fetch(host + '/databases/' + databaseid + '/tables/' + tableid + '/data', {method: 'POST', body: JSON.stringify(data)}))
-      
-      start += ROWS_PER_REQUEST
-      end = start + ROWS_PER_REQUEST
-      if( end > size ) {
-        end = size
-      }
-    }
-    Promise.all(promises)
-    .then(function() {
-      if(cb) cb(size)      
-    })
-    .catch(function() {
-      if(cb) cb(0)
-    })
+  var data = {
+    'database_id': databaseid,
+    'table_id': tableid,
+    'data' : requestData,
+    'columns' : columnsNames,
+    'fields': columns
   }
-}
+
+  var stringBuilder = ''
+  stringBuilder += columnsNames.join(',') + '\n'
+
+  for(var i = 0; i < size; i++) {
+    stringBuilder += Object.values(requestData[i]).join(',') + '\n'
+  }
+
+  var blob = new Blob([stringBuilder], {type: 'text/plain'})
+  var headers = {
+    'Content-Type': 'text/plain'
+  }
+
+  return fetch(host + '/databases/' + databaseid + '/tables/' + tableid + '/data', {method: 'POST',  headers: headers, body: blob})
+  .then(function() {
+    if(cb) cb(size)      
+  })
+  .catch(function(error) {
+    if(cb) cb(0)
+  })
+};
 
 
 SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, aliases, group){
