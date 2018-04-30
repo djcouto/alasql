@@ -118,15 +118,17 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 			var columnid = col.columnid;
 			var dbtypeid = col.dbtypeid;
 			var notnull = col.notnull || false;
-			var dbprecision = col.dbprecision;
 			var dbsize = col.dbsize;
+			var dbprecision = col.dbprecision;
 			var encrypted = col.encrypted;
+			var encryption_technique = col.encryption_technique;
 			columnsmap[columnid] = {}
 			columnsmap[columnid].type = dbtypeid
 			columnsmap[columnid].notnull = notnull
 			columnsmap[columnid].dbsize = dbsize
 			columnsmap[columnid].dbprecision = dbprecision
 			columnsmap[columnid].encrypted = encrypted
+			columnsmap[columnid].encryption_technique = encryption_technique
 			if(!alasql.fn[dbtypeid]){
 				dbtypeid = dbtypeid.toUpperCase();
 			}
@@ -143,7 +145,8 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 				dbprecision: col.dbprecision, 	// Fixed issue #150
 				notnull: col.notnull,
 				identity: col.identity,
-				encrypted: col.encrypted
+				encrypted: col.encrypted,
+				encryption_technique: col.encryption_technique
 			};
 			if(col.identity) {
 				table.identities[col.columnid]={value:+col.identity.value,step:+col.identity.step};
@@ -224,7 +227,7 @@ yy.CreateTable.prototype.execute = function (databaseid, params, cb) {
 			}
 
 			if (encrypted) {
-				table.ecolumns.push(newcol.columnid)
+				table.ecolumns[columnid] = newcol
 			}
 
 			table.columns.push(newcol);

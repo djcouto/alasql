@@ -75,7 +75,9 @@ AUTO(_)?INCREMENT                               return 'IDENTITY'
 NOT\s+BETWEEN									return 'NOT_BETWEEN'
 NOT\s+LIKE									    return 'NOT_LIKE'
 'BY'											return 'BY'
-'ENCRYPTED'										return 'ENCRYPTED'
+
+'ENCRYPTED'|'encrypted'							return 'ENCRYPTED'
+'OPE'|'STD'|'DET'								return 'ENCRYPYTION_TECHNIQUE'
 
 /* Postgres aliases */
 '~~*'											return 'LIKE'
@@ -2109,8 +2111,8 @@ ColumnConstraint
 		{$$ = {null:true}; }
 	| NOT NULL
 		{$$ = {notnull:true}; }
-	| ENCRYPTED
-		{$$ = {encrypted:true}; }
+	| ENCRYPTED ENCRYPYTION_TECHNIQUE
+		{$$ = {encrypted:true, encryption_technique:$2}; }
 	| Check
 		{$$ = {check:$1}; }
 	| UNIQUE
