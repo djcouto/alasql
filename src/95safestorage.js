@@ -135,10 +135,10 @@ SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
   var columnsNames = Object.keys(values[0])
 
   var stringBuilder = ''
-  stringBuilder += columnsNames.join(',') + '\n'
+  stringBuilder += columnsNames.join(',')
 
   for(var i = 0; i < size; i++) {
-    stringBuilder += Object.values(values[i]).join(',') + '\n'
+    stringBuilder += '\n' + Object.values(values[i]).join(',')
   }
 
   var blob = new Blob([stringBuilder], {type: 'text/plain'})
@@ -239,10 +239,10 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
         }
 
         if(hasColumnsToDecrypt) {
-          stringBuilder += columnsNames.join(',') + '\n'
+          stringBuilder += columnsNames.join(',')
 
           for(var i = 0; i < data.length; i++) {
-            stringBuilder += Object.values(data[i]).join(',') + '\n'
+            stringBuilder += '\n' + Object.values(data[i]).join(',')
           }
   
           var blob = new Blob([stringBuilder], {type: 'text/plain'})          
@@ -261,7 +261,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
             if(cb) cb(result, idx, query)
           })
           .catch(function(error) {
-            console.log(error)
             if(cb) cb(0, idx, query)
           })
         } else {
@@ -276,7 +275,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       }
     })
     .catch(function(error) {
-      console.log(error)
       if(cb) cb(0, idx, query)
     })
   } else {
@@ -294,10 +292,10 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
 
         var stringBuilder = ''
         stringBuilder += 'columns' + '\n'
-        stringBuilder += columnsNames.join(',') + '\n'
+        stringBuilder += columnsNames.join(',')
 
         for(var i = 0; i < size; i++) {
-          stringBuilder += Object.values(data[i]).join(',') + '\n'
+          stringBuilder += '\n' + Object.values(data[i]).join(',')
         }
 
         var blob = new Blob([stringBuilder], {type: 'text/plain'})
