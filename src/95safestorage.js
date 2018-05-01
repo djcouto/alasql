@@ -5,11 +5,11 @@
 //
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
-var computedOutside = true;
+var computedOutside = false;
 var secure = true;
-var password = 'supersecretpassword'
-var key = password
-var db
+var password = 'supersecretpassword';
+var key = password;
+var db;
 
 // var storageHost = 'http://localhost:8080'
 var storageHost = 'http://192.168.112.54:8080/safe-storage-1.0';
@@ -192,119 +192,91 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
-      var result
       if(secure) {
         // As it was computed outside, we will only decrypt some specifics fields
+        var hasColumnsToDecrypt = false
         var decryptedColumns = []
+        var aliasesMap = {}
         var ob = {}
         var table = db.tables[tableid]
 
-        var stringBuilder = ''
-        
-        // Get the to decrypt columns
         for(var i = 0; i < aliases.length; i++) {
-          if(aliases[i].hasOwnProperty('columnid')) {
-            var columnName = aliases[i]['columnid']
-            if(columnName === '*') {
-              var encryptedColumns = Object.values(table.ecolumns);
-              for(var j = 0; j < encryptedColumns.length; j++) {
-                decryptedColumns.push(encryptedColumns[j])
-                if(j === encryptedColumns.length - 1) {
-                  stringBuilder += encryptedColumns[j].columnid + '\n'
-                } else {
-                  stringBuilder += encryptedColumns[j].columnid + ','
-                }
-              }
-            } else {
-              if(table.ecolumns.hasOwnProperty(columnName)) {
-                var columnInfo = table.ecolumns[columnName]
-                decryptedColumns.push(columnInfo)
-                if (i === aliases.length - 1) {
-                  stringBuilder += columnInfo.columnid + '\n'
-                } else {
-                  stringBuilder += columnInfo.columnid + ','                  
-                }
-              }
-            }
+          var aliase = aliases[i]
+          if(aliase.hasOwnProperty('as') && aliase.hasOwnProperty('columnid')) {
+            aliasesMap[aliase['as']] = aliase['columnid']
           }
         }
 
-        if(decryptedColumns.length > 0) {
-          // Get the columns encrypted data
-          var data = response.content.data
+        var stringBuilder = ''
+        stringBuilder += 'techniques' + '\n'
+        
+        var data = response.content.data
 
-          for(var i = 0; i < data.length; i++) {
-            var row = data[i]
-            for(var j = 0; j < decryptedColumns.length; j++) {
-              var columnInfo = decryptedColumns[j]
-              if (row.hasOwnProperty(columnInfo.columnid)) {
-                if(j === decryptedColumns.length - 1) {
-                  stringBuilder += row[columnInfo.columnid] + '\n'
-                } else {
-                  stringBuilder += row[columnInfo.columnid] + ','
-                }
-              } else if (row.hasOwnProperty(columnInfo.as)) {
-                if(j === decryptedColumns.length - 1) {
-                  stringBuilder += row[columnInfo.as] + '\n'
-                } else {
-                  stringBuilder += row[columnInfo.as] + ','
-                }
-              }
+        var columnsNames = Object.keys(data[0])
+
+        for(var i = 0; i < columnsNames.length; i++) {
+          var technique
+          if(table.ecolumns.hasOwnProperty(columnsNames[i])) {
+            hasColumnsToDecrypt = true
+            technique = table.ecolumns[columnsNames[i]].encryption_technique
+          } else if (aliasesMap.hasOwnProperty(columnsNames[i])) {
+            var columnName = aliasesMap[columnsNames[i]]
+            if(table.ecolumns.hasOwnProperty(columnName)) {
+              hasColumnsToDecrypt = true              
+              technique = table.ecolumns[columnName].encryption_technique
+            } else {
+              technique = 'PLAIN'
             }
+          } else {
+            technique = 'PLAIN'
           }
 
-          console.log(data)
-          console.log(decryptedColumns)
-          console.log(stringBuilder)          
+          if (i === columnsNames.length - 1) {
+            stringBuilder += technique + '\n'
+          } else {
+            stringBuilder += technique + ','            
+          }
+        }
 
-          if(cb) cb(data, idx, query)
+        if(hasColumnsToDecrypt) {
+          stringBuilder += columnsNames.join(',') + '\n'
 
-          // var blob = new Blob([stringBuilder], {type: 'text/plain'})          
-          // var headers = {
-          //   'Content-Type': 'text/plain'
-          // }
-
-          // // Decrypt the data
-          // return fetch(encryptionHost + '/data/' + databaseid + '/tables/' + tableid + '/decrypt', {method: 'POST',  headers: headers, body: blob})
-          // .then(function(response) {
-          //   return response.json()
-          // })
-          // .then(function(response) {
-          //   var result = []
-          //   var i = 0
-          //   var decryptResult = response.content.data
-          //   for(var i = 0; i < data.length; i++) {
-          //     for(var j = 0; j < decryptedColumns.length; j++) {
-          //       if (data[i].hasOwnProperty(decryptedColumns[j].columnid)) {
-          //         data[i][decryptedColumns[j].columnid] = decryptResult[i][decryptedColumns[j].columnid]
-          //         result.push(data[i])
-          //       } else if (data[i].hasOwnProperty(decryptedColumns[j].as)) {
-          //         data[i][decryptedColumns[j].as] = decryptResult[i][decryptedColumns[j].columnid]
-          //         result.push(data[i])                
-          //       } else {
-          //         result.push(data[i])
-          //       }
-          //     }
-          //   }
-          //   if(cb) cb(result, idx, query)
-          // })
-          // .catch(function(error) {
-          //   console.log(error)
-          //   if(cb) cb(0, idx, query)
-          // })
+          for(var i = 0; i < data.length; i++) {
+            stringBuilder += Object.values(data[i]).join(',') + '\n'
+          }
+  
+          var blob = new Blob([stringBuilder], {type: 'text/plain'})          
+          var headers = {
+            'Content-Type': 'text/plain'
+          }
+  
+          // Decrypt the data
+          return fetch(encryptionHost + '/data/' + databaseid + '/tables/' + tableid + '/decrypt', {method: 'POST',  headers: headers, body: blob})
+          .then(function(response) {
+            return response.json()
+          })
+          .then(function(response) {
+            var result = response.content.data
+            query.join = result
+            if(cb) cb(result, idx, query)
+          })
+          .catch(function(error) {
+            console.log(error)
+            if(cb) cb(0, idx, query)
+          })
         } else {
-          result = response.content.data
+          var result = response.content.data
           query.join = result
           if(cb) cb(result, idx, query)
         }
       } else {
-        result = response.content.data
+        var result = response.content.data
         query.join = result
         if(cb) cb(result, idx, query)
       }
     })
     .catch(function(error) {
-      console.log(error)      
+      console.log(error)
       if(cb) cb(0, idx, query)
     })
   } else {
@@ -321,6 +293,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
         var columnsNames = Object.keys(data[0])
 
         var stringBuilder = ''
+        stringBuilder += 'columns' + '\n'
         stringBuilder += columnsNames.join(',') + '\n'
 
         for(var i = 0; i < size; i++) {
