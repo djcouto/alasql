@@ -460,7 +460,12 @@ yy.Select.prototype.compileSelectGroup2 = function(query) {
 	self.columns.forEach(function(col){
 //			 console.log(col);
 		if(query.ingroup.indexOf(col.nick)>-1) {
-			s += 'r[\''+(col.as||col.nick)+'\']=g[\''+col.nick+'\'];'
+			s += 'r[\''+(col.as||col.nick)+'\']=g[\''+col.nick+'\']'
+			if(col.as) {
+				s += '||g[\''+col.as+'\'];'
+			} else {
+				s += ';'
+			}
 		};
 	});
 

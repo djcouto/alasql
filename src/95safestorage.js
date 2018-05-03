@@ -5,7 +5,7 @@
 //
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
-var computedOutside = false;
+var computedOutside = true;
 var secure = true;
 var password = 'supersecretpassword';
 var key = password;
@@ -257,10 +257,11 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           })
           .then(function(response) {
             var result = response.content.data
-            query.join = result
+            query.join = result            
             if(cb) cb(result, idx, query)
           })
           .catch(function(error) {
+            console.log(error)
             if(cb) cb(0, idx, query)
           })
         } else {
@@ -275,6 +276,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       }
     })
     .catch(function(error) {
+      console.log(error)      
       if(cb) cb(0, idx, query)
     })
   } else {
@@ -308,10 +310,12 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           return response.json()
         })
         .then(function(response) {
-          if(cb) cb(response.content.data, idx, query)
+          var result = response.content.data
+          if(cb) cb(result, idx, query)
         })
       } else {
-        if(cb) cb(response.content.data, idx, query)
+        var result = response.content.data
+        if(cb) cb(result, idx, query)
       }
     })
     .catch(function(error) {
@@ -344,14 +348,88 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
     return response.json()
   })
   .then(function(response) {
-    var result
     if(secure) {
-      result = decrypt(response.content.data, encryptedColumns)
+      // As it was computed outside, we will only decrypt some specifics fields
+      var hasColumnsToDecrypt = false
+      var decryptedColumns = []
+      var aliasesMap = {}
+      var ob = {}
+      var table = db.tables[tableid]
+
+      for(var i = 0; i < aliases.length; i++) {
+        var aliase = aliases[i]
+        if(aliase.hasOwnProperty('as') && aliase.hasOwnProperty('columnid')) {
+          aliasesMap[aliase['as']] = aliase['columnid']
+        }
+      }
+
+      var stringBuilder = ''
+      stringBuilder += 'techniques' + '\n'
+      
+      var data = response.content.data
+
+      var columnsNames = Object.keys(data[0])
+
+      for(var i = 0; i < columnsNames.length; i++) {
+        var technique
+        if(table.ecolumns.hasOwnProperty(columnsNames[i])) {
+          hasColumnsToDecrypt = true
+          technique = table.ecolumns[columnsNames[i]].encryption_technique
+        } else if (aliasesMap.hasOwnProperty(columnsNames[i])) {
+          var columnName = aliasesMap[columnsNames[i]]
+          if(table.ecolumns.hasOwnProperty(columnName)) {
+            hasColumnsToDecrypt = true              
+            technique = table.ecolumns[columnName].encryption_technique
+          } else {
+            technique = 'PLAIN'
+          }
+        } else {
+          technique = 'PLAIN'
+        }
+
+        if (i === columnsNames.length - 1) {
+          stringBuilder += technique + '\n'
+        } else {
+          stringBuilder += technique + ','            
+        }
+      }
+
+      if(hasColumnsToDecrypt) {
+        stringBuilder += columnsNames.join(',')
+
+        for(var i = 0; i < data.length; i++) {
+          stringBuilder += '\n' + Object.values(data[i]).join(',')
+        }
+
+        var blob = new Blob([stringBuilder], {type: 'text/plain'})          
+        var headers = {
+          'Content-Type': 'text/plain'
+        }
+
+        // Decrypt the data
+        return fetch(encryptionHost + '/data/' + databaseid + '/tables/' + tableid + '/decrypt', {method: 'POST',  headers: headers, body: blob})
+        .then(function(response) {
+          return response.json()
+        })
+        .then(function(response) {
+          var result = response.content.data
+          query.join = result            
+          if(cb) cb(result, idx, query)
+        })
+        .catch(function(error) {
+          console.log(error)
+          if(cb) cb(0, idx, query)
+        })
+      } else {
+        var result = response.content.data
+        query.join = result
+        if(cb) cb(result, idx, query)
+      }
     } else {
-      result = response.content.data
+      var result = response.content.data
+      query.join = result
+      if(cb) cb(result, idx, query)
     }
-    query.join = result
-    if(cb) cb(result, idx, query)
   })
   .catch(function(error) {
     if(cb) cb(0, idx, query)
@@ -369,7 +447,8 @@ SSDB.deleteFromTable = function(databaseid, tableid, wherefn, params, cb, whereS
     return response.json()
   })
   .then(function(response) {
-    if(cb) cb(response.content.length)
+    var result = response.content.length
+    if(cb) cb(result)
   })
   .catch(function(error) {
     if(cb) cb(0)

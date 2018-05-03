@@ -1039,10 +1039,15 @@ yy.AggrValue.prototype.toJS = function(/*context, tableid, defcols*/) {
 //	var colas = this.as;
 */
 	var colas = this.nick;
-	if(colas === undefined){ 
+	var alias = this.as;
+	if(colas === undefined){
 		colas = this.toString();
 	}
-	return 'g[\''+colas+'\']';
+	var s = 'g[\''+colas+'\']';
+	if(alias) {
+		s += '||g[\''+alias+'\']';
+	}
+	return s;
 }
 
 
