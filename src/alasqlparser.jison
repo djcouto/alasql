@@ -77,7 +77,7 @@ NOT\s+LIKE									    return 'NOT_LIKE'
 'BY'											return 'BY'
 
 'ENCRYPTED'|'encrypted'							return 'ENCRYPTED'
-'OPE'|'STD'|'DET'								return 'ENCRYPYTION_TECHNIQUE'
+'OPE'|'STD'|'DET'|'TREES_OPE'					return 'ENCRYPYTION_TECHNIQUE'
 
 /* Postgres aliases */
 '~~*'											return 'LIKE'
