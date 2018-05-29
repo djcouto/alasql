@@ -5,7 +5,7 @@
 //
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
-var computedOutside = true;
+var computedOutside = false;
 var secure = true;
 var password = 'supersecretpassword';
 var key = password;
@@ -94,8 +94,9 @@ SSDB.createTable = function(databaseid, tableid, ifnotexists, cb, columnsmap) {
       if (column.encryption_technique === 'OPE' || column.encryption_technique === 'TREES_OPE') {
         var newColumn = {}
         Object.assign(newColumn, columnsmap[key])
-        newColumn.encryption_technique = 'DET'
+        newColumn.encryption_technique = 'STD'
         columnsmap[key+'_shadow'] = newColumn
+        db.tables[tableid].ecolumns[key+'_shadow']  = newColumn
       }
     }
   }
@@ -183,12 +184,9 @@ SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
 
 SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, aliases, group){
   var aliasesMap = {}
-  var shadowColumns = []
   var encryptedColumns = db.tables[tableid].ecolumns  
   if(secure) {
     // Replace occurrences of OPE columns by the shadows columns
-
-    // Select
     if(aliases) {
       for(var i = 0; i < aliases.length; i++) {
         var aliase = aliases[i]
@@ -197,11 +195,11 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           if (encryptedColumns.hasOwnProperty(columnid)) {
             var column = encryptedColumns[columnid]
             if(column.encryption_technique === 'OPE' || column.encryption_technique === 'TREES_OPE') {
-              aliases[i].as = aliases[i].columnid
-              aliases[i].columnid = aliases[i].columnid + '_shadow'
+              aliases.push({
+                columnid: aliases[i].columnid + '_shadow'
+              })
             }
           }
-          
           if (aliase.hasOwnProperty('as')) {
             aliasesMap[aliase['as']] = aliase['columnid']
           }
@@ -218,13 +216,16 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           if (encryptedColumns.hasOwnProperty(columnid)) {
             var column = encryptedColumns[columnid]
             if(column.encryption_technique === 'OPE' || column.encryption_technique === 'TREES_OPE') {
-              group[i].columnid = group[i].columnid + '_shadow'
+              var newGroup = {}
+              Object.assign(newGroup, group[i])
+              newGroup.columnid = newGroup.columnid + '_shadow'
+              group.push(newGroup)
             }
           }
         }
       }
     }
-
+    
   }
   var data = {
     'table_id': tableid,    
@@ -250,18 +251,33 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       return response.json()
     })
     .then(function(response) {
-      console.log(response.content.data)
       if(secure) {
         // As it was computed outside, we will only decrypt some specifics fields
         var hasColumnsToDecrypt = false
-        var decryptedColumns = []
-        var ob = {}
         var table = db.tables[tableid]
 
         var stringBuilder = ''
         stringBuilder += 'techniques' + '\n'
         
         var data = response.content.data
+
+        for(var i = 0; i < data.length; i++) {
+          var row = data[i]
+          for(var key in row) {
+            if(! row.hasOwnProperty(key)) continue
+            if(aliasesMap.hasOwnProperty(key)) {
+              var columnName = aliasesMap[key]
+              if(row.hasOwnProperty(columnName + "_shadow")) {
+                row[key] = row[columnName+"_shadow"]
+                delete row[columnName+"_shadow"]  
+              }
+            } else if(row.hasOwnProperty(key+"_shadow")) {
+              row[key] = row[key+"_shadow"]
+              delete row[key+"_shadow"]                
+            }
+          }
+          data[i] = row
+        }
 
         var columnsNames = Object.keys(data[0])
 
@@ -312,7 +328,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
             if(cb) cb(result, idx, query)
           })
           .catch(function(error) {
-            console.log(error)
             if(cb) cb(0, idx, query)
           })
         } else {
@@ -327,7 +342,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       }
     })
     .catch(function(error) {
-      console.log(error)      
       if(cb) cb(0, idx, query)
     })
   } else {
@@ -339,8 +353,26 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       if(secure) {
         // We will need to decrypt all the tables to be able to execute the query        
         var data = response.content.data
+        for(var i = 0; i < data.length; i++) {
+          var row = data[i]
+          for(var key in row) {
+            if(! row.hasOwnProperty(key)) continue
+            if(aliasesMap.hasOwnProperty(key)) {
+              var columnName = aliasesMap[key]
+              if(row.hasOwnProperty(columnName + "_shadow")) {
+                row[key] = row[columnName+"_shadow"]
+                delete row[columnName+"_shadow"]  
+              }
+            } else if(row.hasOwnProperty(key+"_shadow")) {
+              row[key] = row[key+"_shadow"]
+              delete row[key+"_shadow"]                
+            }
+          }
+          data[i] = row
+        }
+
         var size = data.length;
-        
+
         var columnsNames = Object.keys(data[0])
 
         var stringBuilder = ''
@@ -362,16 +394,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
         })
         .then(function(response) {
           var data = response.content.data
-          for(var i = 0; i < data.length; i++) {
-            var row = data[i]
-            for(var key in row) {
-              if(! row.hasOwnProperty(key)) continue
-              if(row.hasOwnProperty(key+"_shadow")) {
-                row[key] = row[key+"_shadow"]
-              }
-            }
-            data[i] = row
-          }
           if(cb) cb(data, idx, query)
         })
       } else {
@@ -386,6 +408,50 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
 }
 
 SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, joinStatement, aliases, group){
+  var aliasesMap = {}
+  var encryptedColumns = db.tables[tableid].ecolumns  
+  if(secure) {
+    // Replace occurrences of OPE columns by the shadows columns
+    if(aliases) {
+      for(var i = 0; i < aliases.length; i++) {
+        var aliase = aliases[i]
+        if(aliase.hasOwnProperty('columnid')) {
+          var columnid = aliase.columnid
+          if (encryptedColumns.hasOwnProperty(columnid)) {
+            var column = encryptedColumns[columnid]
+            if(column.encryption_technique === 'OPE' || column.encryption_technique === 'TREES_OPE') {
+              aliases.push({
+                columnid: aliases[i].columnid + '_shadow'
+              })
+            }
+          }
+          if (aliase.hasOwnProperty('as')) {
+            aliasesMap[aliase['as']] = aliase['columnid']
+          }
+        }
+      }
+    }
+
+    // Group by
+    if(group) {
+      for(var i = 0; i < group.length; i++) {
+        var gp_by = group[i]
+        if(gp_by.hasOwnProperty('columnid')) {
+          var columnid = gp_by.columnid
+          if (encryptedColumns.hasOwnProperty(columnid)) {
+            var column = encryptedColumns[columnid]
+            if(column.encryption_technique === 'OPE' || column.encryption_technique === 'TREES_OPE') {
+              var newGroup = {}
+              Object.assign(newGroup, group[i])
+              newGroup.columnid = newGroup.columnid + '_shadow'
+              group.push(newGroup)
+            }
+          }
+        }
+      }
+    }
+  }
+
   var data = {
     'database_id': databaseid,
     'fields': query.selectColumns,
@@ -410,24 +476,33 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
   })
   .then(function(response) {
     if(secure) {
+
       // As it was computed outside, we will only decrypt some specifics fields
       var hasColumnsToDecrypt = false
-      var decryptedColumns = []
-      var aliasesMap = {}
-      var ob = {}
       var table = db.tables[tableid]
-
-      for(var i = 0; i < aliases.length; i++) {
-        var aliase = aliases[i]
-        if(aliase.hasOwnProperty('as') && aliase.hasOwnProperty('columnid')) {
-          aliasesMap[aliase['as']] = aliase['columnid']
-        }
-      }
 
       var stringBuilder = ''
       stringBuilder += 'techniques' + '\n'
       
       var data = response.content.data
+
+      for(var i = 0; i < data.length; i++) {
+        var row = data[i]
+        for(var key in row) {
+          if(! row.hasOwnProperty(key)) continue
+          if(aliasesMap.hasOwnProperty(key)) {
+            var columnName = aliasesMap[key]
+            if(row.hasOwnProperty(columnName + "_shadow")) {
+              row[key] = row[columnName+"_shadow"]
+              delete row[columnName+"_shadow"]  
+            }
+          } else if(row.hasOwnProperty(key+"_shadow")) {
+            row[key] = row[key+"_shadow"]
+            delete row[key+"_shadow"]                
+          }
+        }
+        data[i] = row
+      }
 
       var columnsNames = Object.keys(data[0])
 
@@ -478,7 +553,6 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           if(cb) cb(result, idx, query)
         })
         .catch(function(error) {
-          console.log(error)
           if(cb) cb(0, idx, query)
         })
       } else {
@@ -555,7 +629,6 @@ SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, 
     'assign': assignStatement,
     'where': whereStatement
   }
-  console.log(data);
   return fetch(storageHost + '/databases/' + databaseid + '/tables/' + tableid + '/update', {method: 'POST', body: JSON.stringify(data)})
   .then(function(response) {
     return response.json()
