@@ -6,7 +6,7 @@
 
 var SSDB = alasql.engines.SAFESTORAGE = function (){};
 var computedOutside = false;
-var secure = true;
+var secure = false;
 var password = 'supersecretpassword';
 var key = password;
 var db;
@@ -146,15 +146,14 @@ SSDB.dropTable = function (databaseid, tableid, ifexists, cb) {
 
 
 SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
-  // Check the number of rows is bigger than 200 000
   var size = values.length;
   var columnsNames = Object.keys(values[0])
 
   var stringBuilder = ''
-  stringBuilder += columnsNames.join(',')
+  // stringBuilder += columnsNames.join('|')
 
   for(var i = 0; i < size; i++) {
-    stringBuilder += '\n' + Object.values(values[i]).join(',')
+    stringBuilder += '\n' + Object.values(values[i]).join('|')
   }
 
   var blob = new Blob([stringBuilder], {type: 'text/plain'})
