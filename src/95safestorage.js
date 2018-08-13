@@ -183,7 +183,7 @@ SSDB.intoTable = function(databaseid, tableid, values, columns, cb) {
 
 SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, orderByStatement, aliases, group){
   var aliasesMap = {}
-  var encryptedColumns = db.tables[tableid].ecolumns  
+  var encryptedColumns = db.tables[tableid].ecolumns
   if(secure) {
     // Replace occurrences of OPE columns by the shadows columns
     if(aliases) {
@@ -245,11 +245,8 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
   if(computedOutside) {
     query.distinct = false
     query.selectColumns = {}
-    return fetch(storageHost + '/databases/' + databaseid + '/tables/' + tableid + '/where', {method: 'POST', body: JSON.stringify(data)})
-    .then(function(response) {
-      return response.json()
-    })
-    .then(function(response) {
+    return getResponse(storageHost + '/databases/' + databaseid + '/tables/' + tableid + '/where', data, [])
+    .then(function(result) {
       if(secure) {
         // As it was computed outside, we will only decrypt some specifics fields
         var hasColumnsToDecrypt = false
@@ -258,7 +255,7 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
         var stringBuilder = ''
         stringBuilder += 'techniques' + '\n'
         
-        var data = response.content.data
+        var data = result
 
         for(var i = 0; i < data.length; i++) {
           var row = data[i]
@@ -335,7 +332,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           if(cb) cb(result, idx, query)
         }
       } else {
-        var result = response.content.data
         query.join = result
         if(cb) cb(result, idx, query)
       }
@@ -344,14 +340,11 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       if(cb) cb(0, idx, query)
     })
   } else {
-    return fetch(storageHost + '/databases/' + databaseid + '/tables/' + tableid, {method: 'POST', body: JSON.stringify(data)})
-    .then(function(response) {
-      return response.json()
-    })
-    .then(function(response) {
+    return getResponse(storageHost + '/databases/' + databaseid + '/tables/' + tableid, data, [])
+    .then(function(result) {
       if(secure) {
         // We will need to decrypt all the tables to be able to execute the query        
-        var data = response.content.data
+        var data = result
         for(var i = 0; i < data.length; i++) {
           var row = data[i]
           for(var key in row) {
@@ -396,7 +389,6 @@ SSDB.fromTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
           if(cb) cb(data, idx, query)
         })
       } else {
-        var result = response.content.data
         if(cb) cb(result, idx, query)
       }
     })
@@ -469,11 +461,8 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
   }
   query.distinct = false
   query.selectColumns = {}
-  return fetch(storageHost + '/databases/' + databaseid + '/join', {method: 'POST', body: JSON.stringify(data)})
-  .then(function(response) {
-    return response.json()
-  })
-  .then(function(response) {
+  return getResponse(storageHost + '/databases/' + databaseid + '/join', data, [])
+  .then(function(result) {
     if(secure) {
 
       // As it was computed outside, we will only decrypt some specifics fields
@@ -483,7 +472,7 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
       var stringBuilder = ''
       stringBuilder += 'techniques' + '\n'
       
-      var data = response.content.data
+      var data = result
 
       for(var i = 0; i < data.length; i++) {
         var row = data[i]
@@ -560,7 +549,6 @@ SSDB.joinTable = function(databaseid, tableid, cb, idx, query, whereStatement, o
         if(cb) cb(result, idx, query)
       }
     } else {
-      var result = response.content.data
       query.join = result
       if(cb) cb(result, idx, query)
     }
@@ -637,5 +625,25 @@ SSDB.updateTable = function(databaseid, tableid, assignfn, wherefn, params, cb, 
   })
   .catch(function(error) {
     if(cb) cb(0)
+  })
+}
+
+function getResponse(url, data, result) {
+  return new Promise(function(resolve, reject) {
+    fetch(url, {method: 'POST', body: JSON.stringify(data)})
+    .then(function(response) {
+      return response.json()
+    })
+    .then(function(response) {
+      data.offset = result.length + response.content.length
+      result = result.concat(response.content.data)
+      if (response.content.finished) {
+        resolve(result)
+      } else {
+        getResponse(url, data, result).then(function(result) {
+          resolve(result)
+        })
+      }
+    })
   })
 }
